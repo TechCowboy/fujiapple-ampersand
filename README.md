@@ -14,3 +14,8 @@ This will load the ampersand routines, relocate them to HIMEM, save the existing
 ampersand vector address to be called if an ampersand command does not match
 our current list of commands.
 
+
+This project uses python to copy files to the disk images
+https://pypi.org/project/atrcopy/
+
+

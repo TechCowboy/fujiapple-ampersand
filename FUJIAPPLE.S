@@ -23,89 +23,110 @@
 ;        }
 ;    ]
 ;}
-;*****************************************************
-        .ORG $2000 
 
-; HEADER FOR BINARY FILES
+USE_TRACE  = 1
+RELOCATE   = 0
+PRODOS     = 0
 
-        .WORD NINIT
-        .WORD (ENDOFFILE - STARTOFFILE)
+.IF PRODOS
+        .ORG $2000
 
-AMPVECT     =   $03F5     ; AMPERSAND VECTOR FOR APPLESOFT
-GETBYT      =   $E6F8     ; EVAL BYTE -> X
-CHKCOM      =   $DEBE     ; CHECK FOR COMMA
-FRMNUM      =   $DD67     ; EVALUATE NUMERIC EXPRESSION
-GETADR      =   $DD67     ; CONVERT FAC TO INT (MAX 65535)
-PTRGET      =   $DFE3     ; FIND NAMED VARIABLE (ADDRESS IN VARPTR)
-STRINI      =   $E3D5     ; CREATE NEW STRING SPACE
-MOVSTR      =   $E5E2     ; MOVE STRING INTO NEW SPACE
-MOVFM       =   $EAF9     ; UNPACK (Y,A) TO FAC
-MOVMF       =   $EB2B     ; PACK FAC TO (Y,A)
-GIVAYF      =   $E2F2     ; CONVERT SIGNED WORD (A,Y) TO FLOAT
-SNGFLT      =   $E301     ; CONVERT UNSIGNED BYTE Y TO FLOAT
-FLOAT       =   $EB90     ; CONVERT SIGNED BYTE A TO FLOAT
-COUT        =   $FDED     ; DISPLAY A AS CHAR ON SCREEN
-STROUT      =   $DB3A     ; PRINTS STRING POINT BY Y (HI) AND A(LO)
-CONINT      =   $E6FB     ; CONVERT FAC TO INT (MAX 255)
-SYNERR      =   $DEC9     ; ?SYNTAX ERROR
-PRTYX       =   $F940     ; PRINT Y AND X AS HEX
-PRTAX       =   $F941     ; PRINT A AND X AS HEX
-PRTX        =   $F944     ; PRINT X AS HEX
-DOSWARM     =   $03D0     ; CALL TO EXIT BRUN'D PROGRAM
-TXTPTR      =   $B8       ; WHERE WE ARE IN THE BASIC FILE
-VARPTR      =   $83       ; POINTER TO OUR VARIABLE
-DSCTMP      =   $9D       ; TEMPORARY DESCRIPTION STORAGE
-CHRGET      =   $B1       ; ADVANCE TXTPTR, GET CHAR INTO A
-CHRGOT      =   $B7       ; CHARACTER ALREADY PROCESSED BY BASIC
+; NO HEADER FOR PRODOS
+
+.ELSE
+
+; WE SUBRACT 4 TO ALLOW ROOM FOR THE ADDRESS AND LENGTH FIELDS AT THE START OF THE FILE
+
+        .ORG $2000 - 4 
+
+; HEADER FOR BINARY FILES ON DOS 3.3
+
+        .WORD NINIT                             ; Starting address
+        .WORD (ENDOFFILE - RELOCATE_CODE_START) ; Length
+
+.ENDIF
+; VARIOUS SYSTEM ROUTINES AND LOCATIONS 
+
+        .include "APPLEEQU.S"
+
 TOK_READ    =   135       ; APPLESOFT TOKEN FOR READ
 TOK_AT      =   197       ; APPLESOFT TOKEN FOR AT
 TOK_END     =   128       ; APPLESOFT TOKEN FOR END
-HIMEM       =   $73       ; APPLESOFT HIMEM
 QUOTE       =   $22       ; ASCII QUOTE CHARACTER
                           
 ;*********************************************************                           
 
 STARTOFFILE:
-RELOCATE_CODE_START:
 
 NINIT:
 
-        LDA   AMPVECT+1
-        CMP   RELOC_FUJIAPPLE
-        BNE   SAVEVECT
-        LDA   AMPVECT+2
-        CMP   RELOC_FUJIAPPLE+1
-        BNE   SAVEVECT
-;
-; WE'RE ALREADY SET
-; DON'T DO ANYTHING
-;
-                RTS
+; RELOCATE US TO WHERE IT'S SAFE
+
+.IF USE_TRACE
+                JSR CROUT
+                LDA #<HIMEM_IS
+                LDY #>HIMEM_IS
+                JSR STROUT
+
+                LDA HIMEM+1
+                STA OLDHIMEM+1          ; KEEP TRACK OF HIMEM
+		LDX HIMEM
+                STX OLDHIMEM
+		JSR PRTAX
+.ENDIF
+
+.IF RELOCATE
+		JSR ADJUST_HIMEM        ; Move HIMEM so we can put our code there. 
+
+		LDA #<RELOCATING
+		LDY #>RELOCATING
+		JSR STROUT
+		LDA HIMEM+1
+		LDX HIMEM
+		JSR PRTAX
+                JSR CROUT
+
+                JSR RELOCATE_TO_HIMEM   ; copy the code and data, adjust all absolute addresses
+.ENDIF
+
+.IF RELOCATE
+                LDA #<RELOC_SIZE
+                LDY #>RELOC_SIZE
+                JSR STROUT
+                LDX #<(RELOCATE_DATA_END - RELOCATE_CODE_START)
+                LDA #>(RELOCATE_DATA_END - RELOCATE_CODE_START)
+                JSR PRTAX
+                JSR CROUT
+.ENDIF
 
 ; SAVE PREVIOUS VECTOR INFO
 
 SAVEVECT:
-        LDA   AMPVECT
-        STA   PREVECT
-        LDA   AMPVECT+1
-        STA   PREVECT+1
-        LDA   AMPVECT+2
-        STA   PREVECT+2
-;
+                LDA AMPVECT
+                STA PREVECT
+                LDA AMPVECT+1
+                STA PREVECT+1
+                LDA AMPVECT+2
+                STA PREVECT+2
+
 ; UPDATE THE AMPERSAND VECTOR TO OUR ROUTINE
-;
-        LDA   RELOC_FUJIAPPLE  ; SET THE AMPERSAND VECTOR
-        STA   AMPVECT+1
-        LDA   RELOC_FUJIAPPLE+1
-        STA   AMPVECT+2
-;
+
+                LDA #$4C              ; JMP
+                STA AMPVECT
+                LDA RELOC_FUJIAPPLE   ; SET THE AMPERSAND VECTOR
+                STA AMPVECT+1
+                LDA RELOC_FUJIAPPLE+1
+                STA AMPVECT+2
+        
 ; ANNOUNCE OUR SUCCESS
-;
-        LDA   #.LOBYTE(EXTADDED)
-        LDY   #.HIBYTE(EXTADDED) ; LET THE USER KNOW
-        JSR   STROUT
-        JMP   DOSWARM    ; WARM START DOS-NEEDED FOR BRUN
-        RTS
+
+                LDA #<EXTADDED
+                LDY #>EXTADDED ; LET THE USER KNOW
+                JSR STROUT
+                JMP DOSWARM    ; WARM START DOS-NEEDED FOR BRUN
+                RTS
+
+RELOCATE_CODE_START:
 
 ;****************************************
 ; NSTART - FUJINET EXTENSION START
@@ -115,55 +136,66 @@ SAVEVECT:
 ;   GO TO THE PREVIOUS AMPERSAND ROUTINE
 ;****************************************
 NSTART:
-        LDX   #$00
+                LDX #$00
 NEXTCMD:
-        LDY   #$00       ; INDEX INTO TXTPTR
-        LDA   COMMANDS,X ; COMMAND TEXT IN TABLE
-        BEQ   NOMORECMDS ; WE'VE EXAUSTED OUR CMD LIST
+                LDY #$00       ; INDEX INTO TXTPTR
+                LDA COMMANDS,X ; COMMAND TEXT IN TABLE
+                BEQ NOMORECMDS ; WE'VE EXAUSTED OUR CMD LIST
 COMP:
-        LDA   COMMANDS,X
-        CMP   (TXTPTR),Y ; DOES COMMAND TEXT MATCH?
-        BNE   SKIPCMD    ; IT'S NOT A MATCH
-        INY              ; MOVE TO NEXT CHARACTER
-        INX
-        LDA   COMMANDS,X ; IS THE CHARACTER A NULL?
-        BNE   COMP       ; NOPE, COMPARE NEXT CHARACTER
-        BEQ   FOUNDCMD   ; YES, WE'VE FOUND OUR COMMAND
+                LDA COMMANDS,X
+                CMP (TXTPTR),Y ; DOES COMMAND TEXT MATCH?
+                BNE SKIPCMD    ; IT'S NOT A MATCH
+                INY              ; MOVE TO NEXT CHARACTER
+                INX
+                LDA COMMANDS,X ; IS THE CHARACTER A NULL?
+                BNE COMP       ; NOPE, COMPARE NEXT CHARACTER
+                BEQ FOUNDCMD   ; YES, WE'VE FOUND OUR COMMAND
 SKIPCMD:
-        INX              ; MOVE TO THE NEXT CHARACTER
-        LDA   COMMANDS,X ; KEEP READING UNTIL NULL
-        BNE   SKIPCMD
-        INX              ; IGNORE THE NULL
-        INX              ; IGNORE THE ADDRESS
-        INX
+                INX              ; MOVE TO THE NEXT CHARACTER
+                LDA COMMANDS,X ; KEEP READING UNTIL NULL
+                BNE SKIPCMD
+                INX              ; IGNORE THE NULL
+                INX              ; IGNORE THE ADDRESS
+                INX
 
-        CLC
-        BCC   NEXTCMD    ; CHECK NEXT CMD
+                CLC
+                BCC NEXTCMD    ; CHECK NEXT CMD
 FOUNDCMD:
-        TXA
-        PHA
+                TXA
+                PHA
 RMCMD:
-        JSR   CHRGET     ; REMOVE CHAR FROM BASIC
-        DEY
-        BNE   RMCMD
+                JSR CHRGET     ; REMOVE CHAR FROM BASIC
+                DEY
+                BNE RMCMD
 
-        PLA
-        TAX
+                PLA
+                TAX
 
 ; PUSHADDR ON STACK AND "RETURN" TO OUR ROUTINE
 
-        INX
-        LDA   COMMANDS+1,X
-        PHA
-        LDA   COMMANDS,X
-        PHA              ; ADDRESS OF OUR ROUTINE IS ON STACK
-        RTS              ; RETURN TO ADDRESS ON STACK
+                INX
+                LDA COMMANDS+1,X
+                PHA
+                LDA COMMANDS,X
+                PHA              ; ADDRESS OF OUR ROUTINE IS ON STACK
 
-; IF WE'RE HERE, IT'S NOT ONE OF OUR COMMAN.RES
+                RTS              ; "RETURN" (JMP) TO ADDRESS ON STACK
+
+; IF WE'RE HERE, IT'S NOT ONE OF OUR COMMANDS
 ; JUMP TO THE PREVIOUS VECTOR AND LET IT PROCESS IT
 
 NOMORECMDS:
-        JMP   PREVECT    ; WE DIDN'T FIND OUR COMAND SO GO TO OLD VECTOR
+
+.IF USE_TRACE
+
+                LDA #<NOTFOUND
+                LDY #>NOTFOUND
+                JSR STROUT
+                JSR CROUT
+
+.ENDIF
+
+                JMP   PREVECT    ; WE DIDN'T FIND OUR COMAND SO GO TO OLD VECTOR
 
 ;*********************************
 ; GETSTR - GETS A STATIC STRING ("BLAH")
@@ -178,32 +210,33 @@ NOMORECMDS:
 ;***********************************
 
 GETSTR:                    ; GET STATIC STRING
-        LDY   #01
+                LDY #01
 CONSUME:
-        LDA   (TXTPTR),Y ; GET CHARACTER FROM BASIC
-        CMP   #QUOTE     ; WE NEED TO STOP ON THE ENDING QUOTE
-        BEQ   NULLSTR1   ; WE'RE DONE
-        STA   STRBUF-1,Y ; SAVE THE CHARACTER
-        INY
-        CLC              ; RELOCATIBLE JUMP
-        BCC   CONSUME    ; GET THE NEXT CHARACTER
+                LDA (TXTPTR),Y ; GET CHARACTER FROM BASIC
+                CMP #QUOTE     ; WE NEED TO STOP ON THE ENDING QUOTE
+                BEQ NULLSTR1   ; WE'RE DONE
+
+                STA STRBUF-1,Y ; SAVE THE CHARACTER
+                INY
+                CLC              ; RELOCATIBLE JUMP
+                BCC CONSUME    ; GET THE NEXT CHARACTER
 NULLSTR1:
-        LDA   #00
-        STA   STRBUF-1,Y ; TERMINATE THE STRING WITH A NULL
-        DEY
-        STY   STRLEN     ; SAVE THE LENGTH OF THE STRING
-        JSR   CHRGET
+                LDA #00
+                STA STRBUF-1,Y ; TERMINATE THE STRING WITH A NULL
+                DEY
+                STY STRLEN     ; SAVE THE LENGTH OF THE STRING
+                JSR CHRGET
 GOBBLE:
-        JSR   CHRGET     ; GET THE CHARACTER FROM BASIC
-        CMP   #QUOTE     ; HAVE WE FOUND THE ENDING QUOTE?
-        BEQ   COMPLETED  ; WE'RE DONE
-        INY
-        CLC
-        BCC   GOBBLE
+                JSR CHRGET     ; GET THE CHARACTER FROM BASIC
+                CMP #QUOTE     ; HAVE WE FOUND THE ENDING QUOTE?
+                BEQ COMPLETED  ; WE'RE DONE
+                INY
+                CLC
+                BCC GOBBLE
 
 COMPLETED:
-        JSR   CHRGET     ;
-        RTS
+                JSR CHRGET     ;
+                RTS
 
 ;*******************************************
 ; GETSTRVAR - GET STRING VARIABLE
@@ -213,17 +246,17 @@ COMPLETED:
 ;   STRING ADDR HI IN DSCTMP+2
 ;*********************************
 GETSTRVAR:
-        JSR   PTRGET     ; GET URL (STRING)
-        LDY   #0
-        LDA   (VARPTR),Y ; STRING LENGTH
-        STA   DSCTMP
-        INY
-        LDA   (VARPTR),Y ; ADDR LO
-        STA   DSCTMP+1
-        INY
-        LDA   (VARPTR),Y ; ADDR HI
-        STA   DSCTMP+2
-        RTS
+                JSR PTRGET     ; GET STRING DESCRIPTOR
+                LDY #0
+                LDA (VARPTR),Y ; STRING LENGTH
+                STA DSCTMP
+                INY
+                LDA (VARPTR),Y ; ADDR LO
+                STA DSCTMP+1
+                INY
+                LDA (VARPTR),Y ; ADDR HI
+                STA DSCTMP+2
+                RTS
 ;*********************************
 ;*******************************
 ; BYTESAV - CONVERT BYTE TO FLOAT
@@ -241,13 +274,13 @@ GETSTRVAR:
 ;   FLOAT STORED INTO VARIABLE
 ;**********************************
 BYTESAV:
-        LDA   #0
+                LDA #0
 WORDSAV:
-        JSR   GIVAYF     ; CONVERT TO FLOATING POINT
-        JSR   PTRGET     ; FIND ADDRESS OF THE VARIABLE
-        TAX
-        JSR   MOVMF      ; STORE VALUE INTO VARIABLE
-        RTS
+                JSR GIVAYF     ; CONVERT TO FLOATING POINT
+                JSR PTRGET     ; FIND ADDRESS OF THE VARIABLE
+                TAX
+                JSR MOVMF      ; STORE VALUE INTO VARIABLE
+                RTS
 ;*************************************
 ;*************************************
 ;*************************************
@@ -257,51 +290,58 @@ NOPEN:
 ; &NOPEN UNIT,MODE,TRANS,"URL"
 ; Opens a specified URL for use.
 
-        JSR   GETBYT     ; GET THE UNIT
-        STX   UNIT
+.IF USE_TRACE
+                LDA #<NOPEN_STR
+                LDY #>NOPEN_STR
+                JSR STROUT
+                JSR CROUT
+.ENDIF
 
-        JSR   CHKCOM
-        JSR   GETBYT     ; GET MODE
-        STX   MODE
+                JSR GETBYT     ; GET THE UNIT
+                STX UNIT
 
-        JSR   CHKCOM
-        JSR   GETBYT     ; GET TRANS
-        STX   TRANS
+                JSR CHKCOM
+                JSR GETBYT     ; GET MODE
+                STX MODE
 
-        JSR   CHKCOM
-        JSR   CHRGOT     ; WHAT ARE WE POINTING AT IN BASIC
-        CMP   #QUOTE     ; IS IT A STATIC STRING?
-        BNE   VARSTR
+                JSR CHKCOM
+                JSR GETBYT     ; GET TRANS
+                STX TRANS
 
-        JSR   GETSTR     ; GETS THE STATIC STRING, STORED IN STRBUF
+                JSR CHKCOM
+                JSR CHRGOT     ; WHAT ARE WE POINTING AT IN BASIC
+                CMP #QUOTE     ; IS IT A STATIC STRING?
+                BNE VARSTR
+
+                JSR GETSTR     ; GETS THE STATIC STRING, STORED IN STRBUF
 
 ; WE'RE GOING TO CREATE A NEW DESCRIPTION
 ; THE SAME WAY APPLESOFT DOES
 
-        LDA   STRLEN     ; GETSTR STORES THE STRING LENGTH HERE
-        STA   DSCTMP
-        LDA   #.LOBYTE(STRBUF)   ; THE ADDRESS OF OUR STATIC STRING
-        STA   DSCTMP+1
-        LDA   #.HIBYTE(STRBUF)
-        STA   DSCTMP+2
-        CLC
-        BCC   STORE
+                LDA STRLEN     ; GETSTR STORES THE STRING LENGTH HERE
+                STA DSCTMP
+                LDA #<STRBUF   ; THE ADDRESS OF OUR STATIC STRING
+                STA DSCTMP+1
+                LDA #>STRBUF
+                STA DSCTMP+2
+                CLC
+                BCC STORE
 
 VARSTR:
-        JSR   GETSTRVAR  ; IT'S A STRING VARIABLE
+                JSR GETSTRVAR  ; IT'S A STRING VARIABLE
 STORE:
-        LDY   DSCTMP     ; GET THE STRING LENGTH
+                LDY DSCTMP     ; GET THE STRING LENGTH
 STORING:
-        LDA   (DSCTMP+1),Y
-        STA   URL,Y
-        DEY
-        BPL   STORING
+                LDA (DSCTMP+1),Y
+                STA URL,Y
+                DEY
+                BPL STORING
 
 ; MAKE THE STRING C COMPATIBLE
 
-        LDY   DSCTMP
-        LDA   #0         ; NULL TERMINATE STRING
-        STA   URL,Y
+                LDY DSCTMP
+                LDA #0         ; NULL TERMINATE STRING
+                STA URL,Y
 
 ;****** TO DO ******
 ; UNIT, MODE, TRANS AND URL HAVE BEEN FILLED
@@ -309,20 +349,27 @@ STORING:
 ; TO OPEN
 ;******************
 
-        RTS
+                RTS
 ;*********************************************
 NCLOSE:
 ; &NCLOSE UNIT
 ; Closes a network connection.
 
-        JSR   GETBYT     ; GET THE UNIT
-        STX   UNIT
+.IF USE_TRACE
+                LDA #<NCLOSE_STR
+                LDY #>NCLOSE_STR
+                JSR  STROUT
+                JSR CROUT
+.ENDIF
+
+                JSR   GETBYT     ; GET THE UNIT
+                STX   UNIT
 
 ;****** TO DO *****
 ; CALL FUJINET ROUTINE TO CLOSE
 ;*****************
 
-        RTS
+                RTS
 
 ;*********************************************
 NREAD:
@@ -330,69 +377,83 @@ NREAD:
 ; &NREAD UNIT, VAR$, LEN
 ; Gets len number of bytes and puts them into string variable var$
 
-        JSR   GETBYT     ; GET THE UNIT
-        STX   UNIT
-        JSR   CHKCOM
-        JSR   PTRGET     ; GET THE STRING
+.IF USE_TRACE
+                LDA #<NREAD_STR
+                LDY #>NREAD_STR
+                JSR  STROUT
+                JSR CROUT
+.ENDIF
 
-        JSR   CHKCOM
-        JSR   GETBYT     ; GET THE LENGTH
-        STX   BUFLEN
-        TXA
+                JSR   GETBYT     ; GET THE UNIT
+                STX   UNIT
+                JSR   CHKCOM
+                JSR   PTRGET     ; GET THE STRING
 
-        JSR   STRINI     ; CREATE STRING OF LENGTH A
-        LDY   #0
-        LDA   DSCTMP     ; COPY NEW DESCRIPTON
-        STA   (VARPTR),Y
-        INY
-        LDA   DSCTMP+1
-        STA   (VARPTR),Y
-        INY
-        LDA   DSCTMP+2
-        STA   (VARPTR),Y
+                JSR   CHKCOM
+                JSR   GETBYT     ; GET THE LENGTH
+                STX   BUFLEN
+                TXA
+
+                JSR   STRINI     ; CREATE STRING OF LENGTH A
+                LDY   #0
+                LDA   DSCTMP     ; COPY NEW DESCRIPTON
+                STA   (VARPTR),Y
+                INY
+                LDA   DSCTMP+1
+                STA   (VARPTR),Y
+                INY
+                LDA   DSCTMP+2
+                STA   (VARPTR),Y
 
 ;****** TO DO ******
 ; CALL FUJINET READ FOR 'BUFLEN' BYTES
 ; AND STORE THOSE BYTES IN BUF
 ;*******************
 
-        LDA   BUFLEN
-        LDY   #.HIBYTE(BUF)
-        LDX   #.LOBYTE(BUF)
-        JSR   MOVSTR     ; COPY BUFFER TO STRING (VAR$)
-        RTS
+                LDA   BUFLEN
+                LDY   #.HIBYTE(BUF)
+                LDX   #.LOBYTE(BUF)
+                JSR   MOVSTR     ; COPY BUFFER TO STRING (VAR$)
+                RTS
 ;*****************************************************
 NWRITE:
 ; &NWRITE UNIT,VAR$,LEN
 ; &NWRITE UNIT,"STRING",LEN
 ; Gets len number of bytes and puts them into string variable var$
 
-        JSR   GETBYT     ; GET UNIT
-        STX   UNIT
+.IF USE_TRACE
+                LDA #<NWRITE_STR
+                LDY #>NWRITE_STR
+                JSR STROUT
+                JSR CROUT
+.ENDIF
 
-        JSR   CHKCOM
-        JSR   CHRGOT     ; WHAT ARE WE POINTING AT IN BASIC?
-        CMP   #QUOTE     ; IS IT A STATIC STRING?
-        BNE   GETVAR
+                JSR   GETBYT     ; GET UNIT
+                STX   UNIT
 
-        JSR   GETSTR     ; GET THE STATIC STRING
-        CLC
-        BCC   STORE2
+                JSR   CHKCOM
+                JSR   CHRGOT     ; WHAT ARE WE POINTING AT IN BASIC?
+                CMP   #QUOTE     ; IS IT A STATIC STRING?
+                BNE   GETVAR
+
+                JSR   GETSTR     ; GET THE STATIC STRING
+                CLC
+                BCC   STORE2
 
 GETVAR:
-        JSR   GETSTRVAR ; GET VAR$
+                JSR   GETSTRVAR ; GET VAR$
 
 STORE2:
-        JSR   CHKCOM
-        JSR   GETBYT     ; GET LENGTH
-        STX   BUFLEN
+                JSR   CHKCOM
+                JSR   GETBYT     ; GET LENGTH
+                STX   BUFLEN
 
-        LDY   BUFLEN
+                LDY   BUFLEN
 COPYBUF:
-        LDA   (DSCTMP+1),Y
-        STA   BUF,Y
-        DEY
-        BPL   COPYBUF
+                LDA   (DSCTMP+1),Y
+                STA   BUF,Y
+                DEY
+                BPL   COPYBUF
 
 ;****** TO DO *********
 ; BUF NOW CONTAINS DATA
@@ -400,38 +461,55 @@ COPYBUF:
 ; CALL FUJINET
 ;**********************
 
-        RTS
+                RTS
 NCTRL:
 ; &NCTRL UNIT,COMMAND, PAYLOAD$
 ; Sends a specific control message to the network device 
 ; to do a special command. The payload for this command 
 ; is specified as the very last parameter.
 
-        JSR   GETBYT     ; GET UNIT
-        STX   UNIT
+.IF USE_TRACE
+                LDA #<NCTRL_STR
+                LDY #>NCTRL_STR
+                JSR STROUT
+                JSR CROUT
+.ENDIF
 
-        JSR   CHKCOM
-        JSR   GETBYT     ; GET COMMAND
-        STX   COMMAND
+                JSR   GETBYT     ; GET UNIT
+                STX   UNIT
 
-; ONLY ALLOW A VARIABLE, NOT A STATIC STRING
+                JSR   CHKCOM
+                JSR   GETBYT     ; GET COMMAND
+                STX   COMMAND
 
-        JSR   GETSTRVAR
+                JSR   CHKCOM
+                JSR   CHRGOT     ; WHAT ARE WE POINTING AT IN BASIC?
+                CMP   #QUOTE     ; IS IT A STATIC STRING?
+                BNE   GETVAR3
+
+                JSR   GETSTR     ; GET THE STATIC STRING
+                CLC
+                BCC   STORE3
+
+GETVAR3:
+                JSR   GETSTRVAR
+
+STORE3:
 
 ; MOVE STRING TO BUF
-        LDY   DSCTMP
+                LDY   DSCTMP
 CPY2BUF:
-        LDA   (DSCTMP+1),Y
-        STA   PAYLOAD,Y
-        DEY
-        BPL   CPY2BUF
+                LDA   (DSCTMP+1),Y
+                STA   PAYLOAD,Y
+                DEY
+                BPL   CPY2BUF
 ;*
 ;****** TO DO *******
 ; UNIT, COMMAND ARE STORED
 ; AND PAYLOAD$ IS IN PAYLOAD
 ; CALL FUJINET
 ;*******************
-        RTS
+                RTS
 ;*******************************************
 
 NSTATUS:
@@ -440,10 +518,17 @@ NSTATUS:
 ; CONNECTED equals 1 if connect and NERR returns 
 ; the network error code
 
-        JSR   GETBYT
-        STA   UNIT       ; STORE THE UNIT NUMBER
+.IF USE_TRACE
+                LDA #<NSTATUS_STR
+                LDY #>NSTATUS_STR
+                JSR  STROUT
+                JSR CROUT
+.ENDIF
 
-        JSR   CHKCOM
+                JSR   GETBYT
+                STA   UNIT       ; STORE THE UNIT NUMBER
+
+                JSR   CHKCOM
 
 ;******* TO DO *******
 ;* GET BYTES WAITING AND STORE IN BW
@@ -451,18 +536,18 @@ NSTATUS:
 ;* GET ERROR VALUE AND STORE IN NERR
 ;*********************
 
-        LDA   BW+1       ; NUMBER OF BYTES WAITING
-        LDY   BW
-        JSR   WORDSAV    ; CONVERT TO FLOAT AND STORE IN BW VAR
+                LDA   BW+1       ; NUMBER OF BYTES WAITING
+                LDY   BW
+                JSR   WORDSAV    ; CONVERT TO FLOAT AND STORE IN BW VAR
 
-        JSR   CHKCOM
-        LDY   CONNECT
-        JSR   BYTESAV    ; CONVERT TO FLOAT AND STORE IN CONNECT VAR
+                JSR   CHKCOM
+                LDY   CONNECT
+                JSR   BYTESAV    ; CONVERT TO FLOAT AND STORE IN CONNECT VAR
 
-        JSR   CHKCOM
-        LDY   NERR
-        JSR   BYTESAV    ; CONVERT TO FLOAT AND STORE IN NERR VAR
-        RTS
+                JSR   CHKCOM
+                LDY   NERR
+                JSR   BYTESAV    ; CONVERT TO FLOAT AND STORE IN NERR VAR
+                RTS
 
 ;*******************************************
 NEND:
@@ -470,17 +555,55 @@ NEND:
 ; Remove the fujiapple vector and
 ; put the original vector back
 
-        LDA PREVECT
-        STA AMPVECT
-        LDA PREVECT+1
-        STA AMPVECT+1
-        LDA PREVECT+2
-        STA AMPVECT+2
+.IF USE_TRACE
+                LDA #<NEND_STR
+                LDY #>NEND_STR
+                JSR  STROUT
+                JSR CROUT
+.ENDIF
 
-        LDA   #.LOBYTE(EXTREMOVED)
-        LDY   #.HIBYTE(EXTREMOVED) ; LET THE USER KNOW
-        JSR   STROUT
-        RTS
+.IF RELOCATE
+
+                LDA HIMEM
+                CMP RELOC_FUJIAPPLE
+                BNE NO_RESTORE
+                LDA HIMEM+1
+                CMP RELOC_FUJIAPPLE+1
+                BNE NO_RESTORE
+
+                LDA #<RESTORE_HIMEM
+                LDY #>RESTORE_HIMEM
+                JSR STROUT
+
+                LDA OLDHIMEM
+                STA HIMEM
+                LDA OLDHIMEM+1
+                STA HIMEM+1
+
+                CLC
+                BCC RESTORE_VECT
+
+NO_RESTORE:
+                LDA #<CANT_RESTORE
+                LDY #>CANT_RESTORE
+                JSR STROUT
+
+.ENDIF
+
+RESTORE_VECT:
+
+                LDA PREVECT
+                STA AMPVECT
+                LDA PREVECT+1
+                STA AMPVECT+1
+                LDA PREVECT+2
+                STA AMPVECT+2
+
+                LDA   #<EXTREMOVED
+                LDY   #>EXTREMOVED      ; LET THE USER KNOW
+                JSR   STROUT
+                RTS
+
 RELOCATE_CODE_END:
 
 ;***********
@@ -492,14 +615,26 @@ RELOCATE_CODE_END:
 ;***********
 
 ;*********************
+ADJUST_HIMEM_STR:
+                .BYTE $0D, "ADJUSTING HIMEM TO: ", $00
+
+RELOCATING:
+                .BYTE $0D, "RELOCATING TO HIMEM...", $00
+
+RESTORE_HIMEM:
+                .BYTE $0D, "RESTORING HIMEM...", $00
+
+CANT_RESTORE:
+                .BYTE $0D,"SOMETHING ELSE CHANGED HIMEM; CAN'T RESTORE ORIGINAL HIMEM.", $00
 
 EXTADDED:
-    .BYTE   $0D
-    .ASCIIZ   "FUJINET EXTENSIONS ADDED."
+                .BYTE   $0D, "FUJINET EXTENSIONS ADDED.", $0D, $00
 
 EXTREMOVED:
-    .BYTE   $0D
-    .ASCIIZ   "FUJINET EXTENSIONS REMOVED."
+                .BYTE   $0D, "FUJINET EXTENSIONS REMOVED.", $0D, $00
+
+NOTFOUND:
+                .BYTE   $0D, "FUJINET COMMAND NOT FOUND -- FORWARDING TO NEXT AMPERSAND ROUTINE", $0D, $00
 
 ;**************************************
 
@@ -507,31 +642,27 @@ relocate000:
 RELOC_FUJIAPPLE: .WORD NSTART
 
 COMMANDS:
-                .ASCIIZ "NOPEN"         ; NOPEN
+NOPEN_STR:      .ASCIIZ "NOPEN"                 ; NOPEN
 relocate001:    .WORD   NOPEN-1
 
-                .BYTE   'N'             ; NREAD
-                .BYTE   TOK_READ
-                .BYTE   00
+                .BYTE   'N', TOK_READ, 00       ; NREAD
+
 relocate002:    .WORD   NREAD-1
 
-                .ASCIIZ "NWRITE"        ; NWRITE
+NWRITE_STR:     .ASCIIZ "NWRITE"                ; NWRITE
 relocate003:    .WORD   NWRITE-1
 
-                .ASCIIZ "NCTRL"         ; NCTRL
+NCTRL_STR:      .ASCIIZ "NCTRL"                 ; NCTRL
 relocate004:    .WORD   NCTRL-1
 
-                .BYTE   'N','S','T'     ; NSTATUS
-                .BYTE   TOK_AT
+                .BYTE   "NST", TOK_AT           ; NSTATUS
                 .ASCIIZ "US"
 relocate005:    .WORD   NSTATUS-1
 
-                .ASCIIZ "NCLOSE"        ; NCLOSE
+NCLOSE_STR:     .ASCIIZ "NCLOSE"                ; NCLOSE
 relocate006:    .WORD   NCLOSE-1
 
-                .BYTE   "N"             ; NEND
-                .BYTE   TOK_END
-                .BYTE   00
+                .BYTE   "N", TOK_END, 00        ; NEND
 relocate007:    .WORD   NEND-1   
         
 ;*******************************************
@@ -539,7 +670,17 @@ relocate007:    .WORD   NEND-1
 ;*******************************************
                 .BYTE   00              ; END OF TABLE
 
+.IF USE_TRACE
+NREAD_STR:      .ASCIIZ "NREAD"
+NSTATUS_STR:    .ASCIIZ "NSTATUS"
+NEND_STR:       .ASCIIZ "NEND"
+HIMEM_IS:       .ASCIIZ "CURRENT ADDRESS OF HIMEM: "
+RELOC_SIZE:     .BYTE   $0D
+                .ASCIIZ "RELOCATION SIZE: "
+.ENDIF
+
 PREVECT:        .RES 3                  ; JUMP TO CONTENTS OF THE PREVIOUS AMPERSAND VECTOR
+OLDHIMEM:       .RES 2                  ; VALUE OF ORIGINAL HIMEM
 
 ;***************************************
 UNIT:           .BYTE         0
@@ -557,7 +698,7 @@ STRADDR:        .WORD         0
 STRBUF:         .RES          255
 STRLEN:         .BYTE         0
 
-ENDOFFILE:
+
 
 RELOCATE_DATA_END:
 
@@ -566,13 +707,15 @@ RELOCATE_DATA_END:
 .include "RELOCATION.S" 
 
 RELOCATION_TABLE:
-		.WORD 	relocate000,relocate001,relocate002,relocate003,relocate004,relocate005,relocate006,relocate007;,relocate008+1,relocate009+1
+		.WORD 	relocate000+1,relocate001+1,relocate002,relocate003,relocate004,relocate005,relocate006,relocate007 ;,relocate008,relocate009
+
 ;		.WORD 	relocate010+1,relocate011+1,relocate012+1,relocate013+1,relocate014+1,relocate015+1,relocate016+1,relocate017+1,relocate018+1,relocate019+1
 ;		.WORD   relocate020+1,relocate021+1,relocate022+1
 
 END_RELOCATION_TABLE:	.WORD 	0 ; end of table
 			.RES	1024
 
-; This should generate an error if there are too many entries (greater than 255)
+; We should generate an error if there are too many entries (greater than 255)
 
+ENDOFFILE:      NOP
 

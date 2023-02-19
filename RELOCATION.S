@@ -21,38 +21,37 @@
 
 ; SUBROUTINES IN THIS FILE
 ;
-;	RELOCATE_TO_MEMLO
+;	RELOCATE_TO_LOMEM
+;       RELOCATE_TO_HIMEM
 ;	RELOCATE_TO_TGT_ADDR
 ;	MOVE_TO_TARGET
-;	ADJUST_MEMLO
+;	ADJUST_LOMEM
+;       ADJUST_HIMEM
 
 ; Pointers used by relocator.
 
 
-RELOCATE_TABLE		=	$A2
-RELOCATE_TABLE_LO	=	$A2
-RELOCATE_TABLE_HI	= 	$A3
+RELOCATE_TABLE		=	$EB
+RELOCATE_TABLE_LO	=	$EB
+RELOCATE_TABLE_HI	= 	$EC
 
-SRC_ADDR		    =	$A4
-SRC_ADDR_LO	    	=	$A4
-SRC_ADDR_HI		    =	$A5
+SRC_ADDR		=	$ED
+SRC_ADDR_LO	    	=	$ED
+SRC_ADDR_HI		=	$EE
 
-TGT_ADDR		    =	$A6
-TGT_ADDR_LO		    =	$A6
-TGT_ADDR_HI	    	=	$A7
+TGT_ADDR		=	$FA
+TGT_ADDR_LO		=	$FA
+TGT_ADDR_HI	    	=	$FB
 
-MOD_ADDR		    =	$A8
-MOD_ADDR_LO		    =	$A8
-MOD_ADDR_HI		    =	$A9
+MOD_ADDR		=	$FC
+MOD_ADDR_LO		=	$FC
+MOD_ADDR_HI		=	$FD
 
-INSTRUCT_SIZE		=	$AA
-
-
-
+INSTRUCT_SIZE		=	$EF
 
 ;====================================
-; RELOCATE_TO_MEMLO
-;   Move the code and data to MEMLO
+; RELOCATE_TO_HIMEM
+;   Move the code and data to HIMEM
 ; RELOCATE_TO_TGT_ADDRESS
 ;   Move the code and data to the address
 ;   stored in TGT_ADDRESS
@@ -66,6 +65,29 @@ RELOCATE_TO_HIMEM:
         STA TGT_ADDR_LO
         LDA HIMEM+1
         STA TGT_ADDR_HI
+        LDA #01                         ; ZERO = MOVE DOWN
+        STA MOVE_DOWN
+        CLC
+        BCC RELOCATE_TO_TGT_ADDR
+
+;====================================
+; RELOCATE_TO_LOMEM
+;   Move the code and data to LOMEM
+; RELOCATE_TO_TGT_ADDRESS
+;   Move the code and data to the address
+;   stored in TGT_ADDRESS
+;
+; REGISTERS AFFECTED
+;   ALL
+;====================================
+RELOCATE_TO_LOMEM:
+
+        LDA LOMEM
+        STA TGT_ADDR_LO
+        LDA LOMEM+1
+        STA TGT_ADDR_HI
+        LDA #00                         ; ZERO = MOVE DOWN
+        STA MOVE_DOWN
 	
 RELOCATE_TO_TGT_ADDR:
 	
@@ -86,7 +108,12 @@ RELOCATE_TO_TGT_ADDR:
         STA CODE_SIZE_HI
 			
 ; Figure out how much we need to adjust
-; all addresses by	
+; all addresses by
+
+        LDA MOVE_DOWN
+        BNE MOVE_UP1
+
+MOVE_DOWN1:
 
         LDA SRC_ADDR_LO
         SEC
@@ -97,6 +124,21 @@ RELOCATE_TO_TGT_ADDR:
         SBC TGT_ADDR_HI
         STA DIFF_HI
         
+        CLC
+        BCC SEARCH_RELOC
+
+MOVE_UP1:
+
+        LDA SRC_ADDR_LO
+        CLC
+        ADC TGT_ADDR_LO
+        STA DIFF_LO
+        
+        LDA SRC_ADDR_HI
+        ADC TGT_ADDR_HI
+        STA DIFF_HI
+
+SEARCH_RELOC:
         LDA #<RELOCATION_TABLE
         STA RELOCATE_TABLE_LO
         LDA #>RELOCATION_TABLE
@@ -304,6 +346,24 @@ UPDATE_ADDRESSES:
 	
         DEY 				; y back to zero
 
+        LDA MOVE_DOWN
+        BEQ MOVE_DOWN2
+
+MOVE_UP2:
+        LDA (MOD_ADDR),Y; 
+        CLC
+        ADC DIFF_LO
+        STA (MOD_ADDR),Y
+            
+        INY
+        LDA (MOD_ADDR),Y
+        ADC DIFF_HI
+        STA (MOD_ADDR),Y
+
+        CLC
+        BCC MOVE_NEXT
+
+MOVE_DOWN2:
         LDA (MOD_ADDR),Y; 
         SEC
         SBC DIFF_LO
@@ -314,6 +374,7 @@ UPDATE_ADDRESSES:
         SBC DIFF_HI
         STA (MOD_ADDR),Y
 
+MOVE_NEXT:
 ; move to the next entry in the table
 
         CLC
@@ -391,9 +452,9 @@ MOVE_COMPLETED:
 	    RTS
 
 ;====================================
-; ADJUST_MEMLO
+; ADJUST_HIMEM
 ;   Using the size in the relocation 
-; table, adjust MEMLO accordingly
+; table, adjust HIMEM accordingly
 ; NOTE:  this routine briefly disables
 ;        interrupts
 ;
@@ -413,7 +474,7 @@ ADJUST_HIMEM:
         
 ; Make sure another process
 ; doesn't modify our 
-; MEMLO, while we are modifying it
+; HIMEM, while we are modifying it
 	
         SEI
         SEC
@@ -687,5 +748,7 @@ CODE_SIZE_HI:		.BYTE $00
 DIFF:
 DIFF_LO:		.BYTE $00
 DIFF_HI:		.BYTE $00
+
+MOVE_DOWN:              .BYTE $00
 
 
