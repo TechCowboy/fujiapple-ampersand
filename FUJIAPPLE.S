@@ -49,16 +49,37 @@ PRODOS     = 0
 
         .include "APPLEEQU.S"
 
-TOK_READ    =   135       ; APPLESOFT TOKEN FOR READ
-TOK_AT      =   197       ; APPLESOFT TOKEN FOR AT
-TOK_END     =   128       ; APPLESOFT TOKEN FOR END
-QUOTE       =   $22       ; ASCII QUOTE CHARACTER
+TOK_READ                =       135       ; APPLESOFT TOKEN FOR READ
+TOK_AT                  =       197       ; APPLESOFT TOKEN FOR AT
+TOK_END                 =       128       ; APPLESOFT TOKEN FOR END
+QUOTE                   =       $22       ; ASCII QUOTE CHARACTER
                           
+DISPATCHER		=	$EB
+DISPATCHER_ADDR_LO      =       $EB
+DISPATCHER_ADDR_HI   	= 	$EC
+
+SLOT_ADDR		=	$ED
+SLOT_ADDR_LO	    	=	$ED
+SLOT_ADDR_HI		=	$EE
+
 ;*********************************************************                           
 
 STARTOFFILE:
 
 NINIT:
+
+.IF USE_TRACE
+                LDA #<DISPATCH_ADDRESS_STR
+                LDY #>DISPATCH_ADDRESS_STR
+.ENDIF
+                JSR GET_SMARTPORT_DISPATCH_ADDRESS
+                STA SMARTPORT_DISPATCHER+1
+                STX SMARTPORT_DISPATCHER
+.IF USE_TRACE
+                JSR PRTAX
+                JSR CROUT
+.ENDIF
+                RTS
 
 ; RELOCATE US TO WHERE IT'S SAFE
 
@@ -677,10 +698,13 @@ NEND_STR:       .ASCIIZ "NEND"
 HIMEM_IS:       .ASCIIZ "CURRENT ADDRESS OF HIMEM: "
 RELOC_SIZE:     .BYTE   $0D
                 .ASCIIZ "RELOCATION SIZE: "
+DISPATCH_ADDRESS_STR: .ASCIIZ "DISPATCHER ADDRESS: "
 .ENDIF
 
 PREVECT:        .RES 3                  ; JUMP TO CONTENTS OF THE PREVIOUS AMPERSAND VECTOR
 OLDHIMEM:       .RES 2                  ; VALUE OF ORIGINAL HIMEM
+
+SMARTPORT_DISPATCHER: .WORD $0000
 
 ;***************************************
 UNIT:           .BYTE         0
@@ -703,6 +727,111 @@ STRLEN:         .BYTE         0
 RELOCATE_DATA_END:
 
 ; Anything here is only used during setup and doesn't need to be relocated.
+
+;*******************************
+; FIND_SMARTPORT_SLOT
+; INPUT:
+;   NONE
+;***
+; RETURN
+;   A = $FF - NO SMARTPORT FOUND
+;   A = $CX - WHERE X IS THE SLOT
+;**********************************
+
+FIND_SMARTPORT_SLOT:
+
+        LDA     #$C7            ; START AT SLOT 7 ($C700)
+        STA     SLOT_ADDR_HI
+        LDA     #$00
+        STA     SLOT_ADDR_LO
+
+SCAN:
+        LDY #$00
+        LDX #$00
+
+NEXT_MATCH:
+        LDA (SLOT_ADDR),Y        ; COMPARE TO THE MAGIC NUMBERS
+        CMP FIJINET_ID,X
+        BNE NEXT_SLOT           ; NOT THE SAME, SO GO TO NEXT SLOT
+
+        INY                     ; PREPARE TO CHECK THE NEXT NUMBER
+        INY
+        INX                     ; POINTER TO NEXT NUMBER TO CHECK
+        CPX #$04                ; HAVE WE COMPARED ALL 4 NUMBERS?
+        BEQ FOUND               ; YES, WE'VE FOUND IT
+        BNE NEXT_MATCH          ; MORE TO MATCH
+
+NEXT_SLOT:
+        LDX SLOT_ADDR_HI         ; MOVE TO THE NEXT LOWER SLOT
+        DEX                     ; $C700 -> $C600
+        STX SLOT_ADDR_HI
+        CPX #$C0                ; HAVE WE GONE BELOW SLOT 0?
+        BMI NOT_FOUND           ; WE'RE DONE
+        BPL SCAN                ; CONTINUE SCANNING
+FOUND:
+        LDA SLOT_ADDR_HI
+        RTS                     ; WE FOUND IT! A = SLOT ADDRESS
+
+NOT_FOUND:
+        LDA #$FF                ; WE DIDN'T FIND IT
+        RTS
+        
+FIJINET_ID:     .BYTE $20, $00, $03, $00 
+
+;*******************************
+; GET_SMARTPORT_DISPATCH_ADDRESS
+; INPUT:
+;   NONE
+;***
+; RETURN
+;   -A DISPATCHER ADDRESS HIGH
+;   -X DISPATCHER ADDRESS LOW
+; OR A AND X WILL BE SET TO $FF
+; IF DISPATCHER NOT FOUND
+;**********************************
+
+GET_SMARTPORT_DISPATCH_ADDRESS:
+        JSR FIND_SMARTPORT_SLOT
+        CMP #$FF
+        BEQ NO_DISPATCHER
+
+        STA DISPATCHER_ADDR_HI
+        LDA #$00
+        STA DISPATCHER_ADDR_LO
+        
+        LDY #$FF
+        LDA (SLOT_ADDR),Y        ; j= peek(a+0xFF)
+        CLC
+        ADC DISPATCHER_ADDR_LO
+        STA DISPATCHER_ADDR_LO
+
+        LDA DISPATCHER_ADDR_HI
+        ADC #$00
+        STA DISPATCHER_ADDR_HI
+
+        CLC
+        LDA DISPATCHER_ADDR_LO
+        ADC #$03
+        STA DISPATCHER_ADDR_LO
+        
+        LDA DISPATCHER_ADDR_HI
+        ADC #$00
+        STA DISPATCHER_ADDR_HI
+
+        LDA DISPATCHER_ADDR_HI
+        LDX DISPATCHER_ADDR_LO
+        CLC
+        BCC DONE
+
+NO_DISPATCHER:
+        LDA #$FF
+        LDX #$FF
+
+DONE:        
+        RTS
+
+
+
 
 .include "RELOCATION.S" 
 
