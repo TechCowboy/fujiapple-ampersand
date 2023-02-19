@@ -65,8 +65,8 @@ RELOCATE_TO_HIMEM:
         STA TGT_ADDR_LO
         LDA HIMEM+1
         STA TGT_ADDR_HI
-        LDA #01                         ; ZERO = MOVE DOWN
-        STA MOVE_DOWN
+        LDA #00                         ; ZERO = MOVE UP IN MEMORY
+        STA MOVE_HIGHER
         CLC
         BCC RELOCATE_TO_TGT_ADDR
 
@@ -86,8 +86,8 @@ RELOCATE_TO_LOMEM:
         STA TGT_ADDR_LO
         LDA LOMEM+1
         STA TGT_ADDR_HI
-        LDA #00                         ; ZERO = MOVE DOWN
-        STA MOVE_DOWN
+        LDA #01                         ; ONE = MOVE DOWN IN MEMORY
+        STA MOVE_HIGHER
 	
 RELOCATE_TO_TGT_ADDR:
 	
@@ -110,7 +110,7 @@ RELOCATE_TO_TGT_ADDR:
 ; Figure out how much we need to adjust
 ; all addresses by
 
-        LDA MOVE_DOWN
+        LDA MOVE_HIGHER
         BNE MOVE_UP1
 
 MOVE_DOWN1:
@@ -129,13 +129,13 @@ MOVE_DOWN1:
 
 MOVE_UP1:
 
-        LDA SRC_ADDR_LO
-        CLC
-        ADC TGT_ADDR_LO
+        LDA TGT_ADDR_LO
+        SEC
+        SBC SRC_ADDR_LO
         STA DIFF_LO
         
-        LDA SRC_ADDR_HI
-        ADC TGT_ADDR_HI
+        LDA TGT_ADDR_HI
+        SBC SRC_ADDR_HI
         STA DIFF_HI
 
 SEARCH_RELOC:
@@ -346,8 +346,8 @@ UPDATE_ADDRESSES:
 	
         DEY 				; y back to zero
 
-        LDA MOVE_DOWN
-        BEQ MOVE_DOWN2
+        LDA MOVE_HIGHER
+        BNE MOVE_DOWN2
 
 MOVE_UP2:
         LDA (MOD_ADDR),Y; 
@@ -749,6 +749,6 @@ DIFF:
 DIFF_LO:		.BYTE $00
 DIFF_HI:		.BYTE $00
 
-MOVE_DOWN:              .BYTE $00
+MOVE_HIGHER:              .BYTE $00
 
 

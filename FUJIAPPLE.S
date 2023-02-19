@@ -25,7 +25,7 @@
 ;}
 
 USE_TRACE  = 1
-RELOCATE   = 0
+RELOCATE   = 1
 PRODOS     = 0
 
 .IF PRODOS
