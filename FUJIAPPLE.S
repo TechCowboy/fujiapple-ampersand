@@ -26,7 +26,8 @@
 
 USE_TRACE  = 1
 RELOCATE   = 1
-PRODOS     = 0
+PRODOS     = 1
+APPLEII    = 1
 
 .IF PRODOS
         .ORG $2000
@@ -48,19 +49,20 @@ PRODOS     = 0
 ; VARIOUS SYSTEM ROUTINES AND LOCATIONS 
 
         .include "APPLEEQU.S"
+        .include "ZEROPAGE.S"
 
 TOK_READ                =       135       ; APPLESOFT TOKEN FOR READ
 TOK_AT                  =       197       ; APPLESOFT TOKEN FOR AT
 TOK_END                 =       128       ; APPLESOFT TOKEN FOR END
 QUOTE                   =       $22       ; ASCII QUOTE CHARACTER
                           
-DISPATCHER		=	$EB
-DISPATCHER_ADDR_LO      =       $EB
-DISPATCHER_ADDR_HI   	= 	$EC
+DISPATCHER		=	ZP1
+DISPATCHER_ADDR_LO      =       ZP1_LO
+DISPATCHER_ADDR_HI   	= 	ZP1_HI
 
-SLOT_ADDR		=	$ED
-SLOT_ADDR_LO	    	=	$ED
-SLOT_ADDR_HI		=	$EE
+SLOT_ADDR		=	ZP2
+SLOT_ADDR_LO	    	=	ZP2_LO
+SLOT_ADDR_HI		=	ZP2_HI
 
 ;*********************************************************                           
 
@@ -69,23 +71,36 @@ STARTOFFILE:
 NINIT:
 
 .IF USE_TRACE
-                LDA #<DISPATCH_ADDRESS_STR
+                LDA #<DISPATCH_ADDRESS_STR              ; "SMARTPORT ADDRESS:"
                 LDY #>DISPATCH_ADDRESS_STR
+                JSR STROUT
 .ENDIF
-                JSR GET_SMARTPORT_DISPATCH_ADDRESS
-                STA SMARTPORT_DISPATCHER+1
+                JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
+                STA SMARTPORT_DISPATCHER+1              ; REMEMBER THE ADDRESS
                 STX SMARTPORT_DISPATCHER
+
 .IF USE_TRACE
-                JSR PRTAX
+                JSR PRTAX                               ; PRINT THE ADDRESS
                 JSR CROUT
 .ENDIF
+
+                LDA SMARTPORT_DISPATCHER+1
+                CMP #$FF                                ; WAS THE CARD FOUND?
+                BNE FOUND_SMARTPORT
+
+                LDA #<SP_NOT_FOUND                      ; "SMARTPORT NOT FOUND!"
+                LDY #>SP_NOT_FOUND
+                JSR STROUT
                 RTS
+
+FOUND_SMARTPORT:
+
 
 ; RELOCATE US TO WHERE IT'S SAFE
 
 .IF USE_TRACE
-                JSR CROUT
-                LDA #<HIMEM_IS
+                JSR CROUT               ; CARRIAGE RETURN
+                LDA #<HIMEM_IS          ; "HIMEM IS:"
                 LDY #>HIMEM_IS
                 JSR STROUT
 
@@ -93,30 +108,30 @@ NINIT:
                 STA OLDHIMEM+1          ; KEEP TRACK OF HIMEM
 		LDX HIMEM
                 STX OLDHIMEM
-		JSR PRTAX
+		JSR PRTAX               ; PRINT ADDRESS
 .ENDIF
 
 .IF RELOCATE
-		JSR ADJUST_HIMEM        ; Move HIMEM so we can put our code there. 
+		JSR ADJUST_HIMEM        ; Move HIMEM so we can put our code at it. 
 
-		LDA #<RELOCATING
+		LDA #<RELOCATING        ; "RELOCATING TO:"
 		LDY #>RELOCATING
 		JSR STROUT
 		LDA HIMEM+1
 		LDX HIMEM
-		JSR PRTAX
+		JSR PRTAX               ; PRINT NEW HIMEM ADDRESS
                 JSR CROUT
 
                 JSR RELOCATE_TO_HIMEM   ; copy the code and data, adjust all absolute addresses
 .ENDIF
 
 .IF RELOCATE
-                LDA #<RELOC_SIZE
+                LDA #<RELOC_SIZE        ; "CODE SIZE:"
                 LDY #>RELOC_SIZE
                 JSR STROUT
                 LDX #<(RELOCATE_DATA_END - RELOCATE_CODE_START)
                 LDA #>(RELOCATE_DATA_END - RELOCATE_CODE_START)
-                JSR PRTAX
+                JSR PRTAX               ; PRINT SIZE
                 JSR CROUT
 .ENDIF
 
@@ -132,19 +147,19 @@ SAVEVECT:
 
 ; UPDATE THE AMPERSAND VECTOR TO OUR ROUTINE
 
-                LDA #$4C              ; JMP
+                LDA #$4C                ; JMP
                 STA AMPVECT
-                LDA RELOC_FUJIAPPLE   ; SET THE AMPERSAND VECTOR
+                LDA RELOC_FUJIAPPLE     ; SET THE AMPERSAND VECTOR
                 STA AMPVECT+1
                 LDA RELOC_FUJIAPPLE+1
                 STA AMPVECT+2
         
 ; ANNOUNCE OUR SUCCESS
 
-                LDA #<EXTADDED
-                LDY #>EXTADDED ; LET THE USER KNOW
+                LDA #<EXTADDED          ; "FUJINET EXTENSION ADDED"
+                LDY #>EXTADDED          
                 JSR STROUT
-                JMP DOSWARM    ; WARM START DOS-NEEDED FOR BRUN
+                JMP DOSWARM             ; WARM START DOS-NEEDED FOR BRUN
                 RTS
 
 RELOCATE_CODE_START:
@@ -172,20 +187,20 @@ COMP:
                 BNE COMP       ; NOPE, COMPARE NEXT CHARACTER
                 BEQ FOUNDCMD   ; YES, WE'VE FOUND OUR COMMAND
 SKIPCMD:
-                INX              ; MOVE TO THE NEXT CHARACTER
-                LDA COMMANDS,X ; KEEP READING UNTIL NULL
+                INX             ; MOVE TO THE NEXT CHARACTER
+                LDA COMMANDS,X  ; KEEP READING UNTIL NULL
                 BNE SKIPCMD
-                INX              ; IGNORE THE NULL
-                INX              ; IGNORE THE ADDRESS
+                INX             ; IGNORE THE NULL
+                INX             ; IGNORE THE ADDRESS
                 INX
 
                 CLC
-                BCC NEXTCMD    ; CHECK NEXT CMD
+                BCC NEXTCMD     ; CHECK NEXT CMD
 FOUNDCMD:
                 TXA
                 PHA
 RMCMD:
-                JSR CHRGET     ; REMOVE CHAR FROM BASIC
+                JSR CHRGET      ; REMOVE CHAR FROM BASIC
                 DEY
                 BNE RMCMD
 
@@ -198,9 +213,9 @@ RMCMD:
                 LDA COMMANDS+1,X
                 PHA
                 LDA COMMANDS,X
-                PHA              ; ADDRESS OF OUR ROUTINE IS ON STACK
+                PHA             ; ADDRESS OF OUR ROUTINE IS ON STACK
 
-                RTS              ; "RETURN" (JMP) TO ADDRESS ON STACK
+                RTS             ; "RETURN" (JMP) TO ADDRESS ON STACK
 
 ; IF WE'RE HERE, IT'S NOT ONE OF OUR COMMANDS
 ; JUMP TO THE PREVIOUS VECTOR AND LET IT PROCESS IT
@@ -209,7 +224,7 @@ NOMORECMDS:
 
 .IF USE_TRACE
 
-                LDA #<NOTFOUND
+                LDA #<NOTFOUND  ; "COMMAND NOT FOUND"
                 LDY #>NOTFOUND
                 JSR STROUT
                 JSR CROUT
@@ -230,33 +245,33 @@ NOMORECMDS:
 ;    WE DON'T USE IT TO COLLECT THE STRING
 ;***********************************
 
-GETSTR:                    ; GET STATIC STRING
+GETSTR:                         ; GET STATIC STRING
                 LDY #01
 CONSUME:
-                LDA (TXTPTR),Y ; GET CHARACTER FROM BASIC
-                CMP #QUOTE     ; WE NEED TO STOP ON THE ENDING QUOTE
-                BEQ NULLSTR1   ; WE'RE DONE
+                LDA (TXTPTR),Y  ; GET CHARACTER FROM BASIC
+                CMP #QUOTE      ; WE NEED TO STOP ON THE ENDING QUOTE
+                BEQ NULLSTR1    ; WE'RE DONE
 
-                STA STRBUF-1,Y ; SAVE THE CHARACTER
+                STA STRBUF-1,Y  ; SAVE THE CHARACTER
                 INY
-                CLC              ; RELOCATIBLE JUMP
-                BCC CONSUME    ; GET THE NEXT CHARACTER
+                CLC             ; RELOCATIBLE JUMP
+                BCC CONSUME     ; GET THE NEXT CHARACTER
 NULLSTR1:
                 LDA #00
-                STA STRBUF-1,Y ; TERMINATE THE STRING WITH A NULL
+                STA STRBUF-1,Y  ; TERMINATE THE STRING WITH A NULL
                 DEY
-                STY STRLEN     ; SAVE THE LENGTH OF THE STRING
+                STY STRLEN      ; SAVE THE LENGTH OF THE STRING
                 JSR CHRGET
 GOBBLE:
-                JSR CHRGET     ; GET THE CHARACTER FROM BASIC
-                CMP #QUOTE     ; HAVE WE FOUND THE ENDING QUOTE?
-                BEQ COMPLETED  ; WE'RE DONE
+                JSR CHRGET      ; GET THE CHARACTER FROM BASIC
+                CMP #QUOTE      ; HAVE WE FOUND THE ENDING QUOTE?
+                BEQ COMPLETED   ; WE'RE DONE
                 INY
                 CLC
                 BCC GOBBLE
 
 COMPLETED:
-                JSR CHRGET     ;
+                JSR CHRGET     
                 RTS
 
 ;*******************************************
@@ -312,7 +327,7 @@ NOPEN:
 ; Opens a specified URL for use.
 
 .IF USE_TRACE
-                LDA #<NOPEN_STR
+                LDA #<NOPEN_STR ; "NOPEN"
                 LDY #>NOPEN_STR
                 JSR STROUT
                 JSR CROUT
@@ -399,25 +414,25 @@ NREAD:
 ; Gets len number of bytes and puts them into string variable var$
 
 .IF USE_TRACE
-                LDA #<NREAD_STR
+                LDA #<NREAD_STR ; "NREAD"
                 LDY #>NREAD_STR
                 JSR  STROUT
                 JSR CROUT
 .ENDIF
 
-                JSR   GETBYT     ; GET THE UNIT
+                JSR   GETBYT    ; GET THE UNIT
                 STX   UNIT
                 JSR   CHKCOM
-                JSR   PTRGET     ; GET THE STRING
+                JSR   PTRGET    ; GET THE STRING
 
                 JSR   CHKCOM
-                JSR   GETBYT     ; GET THE LENGTH
+                JSR   GETBYT    ; GET THE LENGTH
                 STX   BUFLEN
                 TXA
 
-                JSR   STRINI     ; CREATE STRING OF LENGTH A
+                JSR   STRINI    ; CREATE STRING OF LENGTH A
                 LDY   #0
-                LDA   DSCTMP     ; COPY NEW DESCRIPTON
+                LDA   DSCTMP    ; COPY NEW DESCRIPTON
                 STA   (VARPTR),Y
                 INY
                 LDA   DSCTMP+1
@@ -434,7 +449,7 @@ NREAD:
                 LDA   BUFLEN
                 LDY   #.HIBYTE(BUF)
                 LDX   #.LOBYTE(BUF)
-                JSR   MOVSTR     ; COPY BUFFER TO STRING (VAR$)
+                JSR   MOVSTR    ; COPY BUFFER TO STRING (VAR$)
                 RTS
 ;*****************************************************
 NWRITE:
@@ -443,7 +458,7 @@ NWRITE:
 ; Gets len number of bytes and puts them into string variable var$
 
 .IF USE_TRACE
-                LDA #<NWRITE_STR
+                LDA #<NWRITE_STR        
                 LDY #>NWRITE_STR
                 JSR STROUT
                 JSR CROUT
@@ -698,8 +713,10 @@ NEND_STR:       .ASCIIZ "NEND"
 HIMEM_IS:       .ASCIIZ "CURRENT ADDRESS OF HIMEM: "
 RELOC_SIZE:     .BYTE   $0D
                 .ASCIIZ "RELOCATION SIZE: "
-DISPATCH_ADDRESS_STR: .ASCIIZ "DISPATCHER ADDRESS: "
+DISPATCH_ADDRESS_STR: 
+                .ASCIIZ "DISPATCHER ADDRESS: "
 .ENDIF
+SP_NOT_FOUND:   .ASCIIZ "SMARTPORT NOT FOUND!"
 
 PREVECT:        .RES 3                  ; JUMP TO CONTENTS OF THE PREVIOUS AMPERSAND VECTOR
 OLDHIMEM:       .RES 2                  ; VALUE OF ORIGINAL HIMEM
@@ -746,12 +763,12 @@ FIND_SMARTPORT_SLOT:
         STA     SLOT_ADDR_LO
 
 SCAN:
-        LDY #$00
+        LDY #$01                ; LOOK AT BYTES 1,3,5,AND 7
         LDX #$00
 
 NEXT_MATCH:
-        LDA (SLOT_ADDR),Y        ; COMPARE TO THE MAGIC NUMBERS
-        CMP FIJINET_ID,X
+        LDA (SLOT_ADDR),Y       ; COMPARE TO THE MAGIC NUMBERS
+        CMP FIJINET_ID,X        ; 
         BNE NEXT_SLOT           ; NOT THE SAME, SO GO TO NEXT SLOT
 
         INY                     ; PREPARE TO CHECK THE NEXT NUMBER
@@ -762,12 +779,12 @@ NEXT_MATCH:
         BNE NEXT_MATCH          ; MORE TO MATCH
 
 NEXT_SLOT:
-        LDX SLOT_ADDR_HI         ; MOVE TO THE NEXT LOWER SLOT
+        LDX SLOT_ADDR_HI        ; MOVE TO THE NEXT LOWER SLOT
         DEX                     ; $C700 -> $C600
         STX SLOT_ADDR_HI
-        CPX #$C0                ; HAVE WE GONE BELOW SLOT 0?
-        BMI NOT_FOUND           ; WE'RE DONE
-        BPL SCAN                ; CONTINUE SCANNING
+        CPX #$C0                ; HAVE WE GONE BELOW SLOT 1?
+        BEQ NOT_FOUND           ; WE'RE DONE
+        BNE SCAN                ; CONTINUE SCANNING
 FOUND:
         LDA SLOT_ADDR_HI
         RTS                     ; WE FOUND IT! A = SLOT ADDRESS
@@ -791,25 +808,25 @@ FIJINET_ID:     .BYTE $20, $00, $03, $00
 ;**********************************
 
 GET_SMARTPORT_DISPATCH_ADDRESS:
-        JSR FIND_SMARTPORT_SLOT
-        CMP #$FF
+        JSR FIND_SMARTPORT_SLOT 
+        CMP #$FF                ; IF A == $FF THEN NOT FOUND
         BEQ NO_DISPATCHER
 
-        STA DISPATCHER_ADDR_HI
+        STA DISPATCHER_ADDR_HI  ; A = $CX WHERE X IS THE SLOT
         LDA #$00
-        STA DISPATCHER_ADDR_LO
+        STA DISPATCHER_ADDR_LO  ; COMPLETE ADDRESS IS $CX00
         
         LDY #$FF
         LDA (SLOT_ADDR),Y        ; j= peek(a+0xFF)
         CLC
-        ADC DISPATCHER_ADDR_LO
+        ADC DISPATCHER_ADDR_LO   ; DISPATCHER_ADDR += J
         STA DISPATCHER_ADDR_LO
 
         LDA DISPATCHER_ADDR_HI
         ADC #$00
         STA DISPATCHER_ADDR_HI
 
-        CLC
+        CLC                     ; DISPATCHER_ADDR += 3
         LDA DISPATCHER_ADDR_LO
         ADC #$03
         STA DISPATCHER_ADDR_LO
@@ -818,13 +835,13 @@ GET_SMARTPORT_DISPATCH_ADDRESS:
         ADC #$00
         STA DISPATCHER_ADDR_HI
 
-        LDA DISPATCHER_ADDR_HI
+        LDA DISPATCHER_ADDR_HI  ; PUT ADDRESS IN A AND X
         LDX DISPATCHER_ADDR_LO
         CLC
         BCC DONE
 
 NO_DISPATCHER:
-        LDA #$FF
+        LDA #$FF                ; NO ADDRESS FOUND
         LDX #$FF
 
 DONE:        

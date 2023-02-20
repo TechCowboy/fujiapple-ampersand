@@ -3,8 +3,9 @@ import os
 import time
 from subprocess import Popen, PIPE
 
-filename  = "FUJIAPPLE"
-pfilename = "FUJIAPPLEP"
+filename   = [ "FUJIAPPLE"]
+pfilenames = [ "FUJIAPPLE"  ]
+pfilenamed = [ "FUJIAPPLEP" ]
 dosdisk   = "FUJIAPPLE.dsk"
 prodisk   = "FUJIAPPLE.po"
 
@@ -46,10 +47,17 @@ def find_file(file):
     print("F")
     p.press("F")
     time.sleep(my_speed)
+    
+    p.keyDown("alt")
+    p.press("n")
+    p.keyUp("alt")
+    time.sleep(my_speed)
 
     erase_field()
         
+    print(f"Searching for '{file}'")    
     p.write(file)
+
     time.sleep(my_speed)
     if not checked:
         print("not checked")
@@ -72,132 +80,139 @@ def find_file(file):
         
     time.sleep(0.5)
 
-def add_file(file):
-    
-    print(f"add_file {file}")
-    print("alt-a")
-    p.press("alt")
-    p.press("A")
-    time.sleep(my_speed)
-    print("F")
-    p.press("F")
-    time.sleep(my_speed)
-    
-    p.keyDown("alt")
-    p.press("n")
-    p.keyUp("alt")
-    
-    erase_field()
-    
-    print(f"write {file}")
-    p.write(file)
-    
-    time.sleep(my_speed)
-    
-    p.press("enter")
-    time.sleep(0.5)
+def add_file(files):
 
-
-def prodos_bin_file(file, address):
-
-    find_file(file)
+    for file in files:
     
-    print(f"bin_file {file}")
-    
-    print("alt-a")
-    p.press("alt")
-    p.press("A")
-    time.sleep(my_speed)
-    
-    print("a")
-    p.press("a")
-    time.sleep(my_speed)
-    
-    
-    do_tabs(4)
-    
-    for i in range(10):
-        print(f"{i+1}/10 up ", end='')
-        p.press("up")
-        time.sleep(tab_speed)
-    print()
-    
-    for i in range(6):
-        print(f"{i+1}/6 down ", end='')
-        p.press("down")
+        print(f"add_file {file}")
+        
+        print("alt-a")
+        p.press("alt")
+        p.press("A")
         time.sleep(my_speed)
-    print()
-    
-    do_tabs(1)
-    
-    erase_field()
-    p.write(address)
-    time.sleep(my_speed)
-    
-    print("enter")
-    p.press("enter")
-    time.sleep(my_speed)
-    
-    print("enter")
-    p.press("enter")
-    time.sleep(0.5)
-
-def dos_bin_file(file):
-
-    find_file(file)
-    
-    print(f"bin_file {file}")
-    
-    print("alt-a")
-    p.press("alt")
-    p.press("A")
-    time.sleep(my_speed)
-    print("a")
-    p.press("a")
-    time.sleep(my_speed)
-       
-    do_tabs(4)
-    
-    for i in range(10):
-        print(f"{i+1}/10 up ", end='')
-        p.press("up")
-        time.sleep(tab_speed)
-    print()
-    
-    for i in range(1):
-        print(f"{i+1}/1 down ", end='')
-        p.press("down")
+        print("F")
+        p.press("F")
         time.sleep(my_speed)
-    print()
-    
-    p.press("tab")
-    
-    print("enter")
-    p.press("enter")
-    time.sleep(my_speed)
-    
-    print("enter")
-    p.press("enter")
-    time.sleep(0.5)
+        
+        p.keyDown("alt")
+        p.press("n")
+        p.keyUp("alt")
+        
+        erase_field()
+        time.sleep(my_speed)
+        
+        print(f"add file '{file}'")
+        p.write(file)
+
+        time.sleep(my_speed)
+        
+        p.press("enter")
+        time.sleep(0.5)
+
+
+def prodos_bin_file(files, address):
+
+    for file in files:
+        find_file(file)
+        
+        print(f"bin_file {file}")
+        
+        print("alt-a")
+        p.press("alt")
+        p.press("A")
+        time.sleep(my_speed)
+        
+        print("a")
+        p.press("a")
+        time.sleep(my_speed)
+        
+        
+        do_tabs(4)
+        
+        for i in range(10):
+            print(f"{i+1}/10 up ", end='')
+            p.press("up")
+            time.sleep(tab_speed)
+        print()
+        
+        for i in range(6):
+            print(f"{i+1}/6 down ", end='')
+            p.press("down")
+            time.sleep(my_speed)
+        print()
+        
+        do_tabs(1)
+        
+        erase_field()
+        p.write(address)
+        time.sleep(my_speed)
+        
+        print("enter")
+        p.press("enter")
+        time.sleep(my_speed)
+        
+        print("enter")
+        p.press("enter")
+        time.sleep(0.5)
+
+def dos_bin_file(files):
+
+    for file in files:
+        find_file(file)
+        
+        print(f"bin_file {file}")
+        
+        print("alt-a")
+        p.press("alt")
+        p.press("A")
+        time.sleep(my_speed)
+        print("a")
+        p.press("a")
+        time.sleep(my_speed)
+           
+        do_tabs(4)
+        
+        for i in range(10):
+            print(f"{i+1}/10 up ", end='')
+            p.press("up")
+            time.sleep(tab_speed)
+        print()
+        
+        for i in range(1):
+            print(f"{i+1}/1 down ", end='')
+            p.press("down")
+            time.sleep(my_speed)
+        print()
+        
+        p.press("tab")
+        
+        print("enter")
+        p.press("enter")
+        time.sleep(my_speed)
+        
+        print("enter")
+        p.press("enter")
+        time.sleep(0.5)
         
 
-def del_file(file):
+def del_file(files):
 
-    time.sleep(0.5)
+    for file in files:
+        time.sleep(0.5)
 
-    find_file(file)
-    
-    print(f"del_file {file}")
-    print("alt-a")
-    p.press("alt")
-    p.press("A")
-    time.sleep(my_speed)
-    print("d")
-    p.press("d")
-    time.sleep(0.5)
-    
-    p.press("enter")
-    p.sleep(0.5)
+        find_file(file)
+        
+        print(f"del_file {file}")
+        print("alt-a")
+        p.press("alt")
+        p.press("A")
+        time.sleep(my_speed)
+        print("d")
+        p.press("d")
+        time.sleep(0.5)
+        
+        p.press("enter")
+        p.sleep(0.5)
 
 def leave():
     print("alt-f")
@@ -298,9 +313,10 @@ if __name__ == "__main__":
         DOS3_version(dosdisk, filename)
     else:
         start_program = True
-        
-    address = convert_dos_bin_to_prodos(filename, pfilename)
-    ProDOS_version(prodisk, pfilename, address)
+    
+    for i in range(len(pfilenames)):
+        address = convert_dos_bin_to_prodos(pfilenames[i], pfilenamed[i])
+        ProDOS_version(prodisk, pfilenamed[i], address)
     
     print("Copy to TNFS server...")
 
