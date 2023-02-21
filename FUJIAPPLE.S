@@ -56,7 +56,7 @@ TOK_READ                =       135       ; APPLESOFT TOKEN FOR READ
 TOK_AT                  =       197       ; APPLESOFT TOKEN FOR AT
 TOK_END                 =       128       ; APPLESOFT TOKEN FOR END
 QUOTE                   =       $22       ; ASCII QUOTE CHARACTER
-                          
+TOK_LIST                =       188       ; APPLESOFT TOKEN FOR LIST                          
 
 ;*********************************************************                           
 
@@ -98,18 +98,17 @@ FOUND_SMARTPORT:
 ;                JSR DISPLAY_SP_STATUS                   ; SHOW THE ID AND VERSION
 ;                JSR DISPLAY_SP_DEVICES                  ; SHOW ALL THE DEVICES
 
-                LDA #<FUJI_DISK_0_STR
-                LDY #>FUJI_DISK_0_STR
-                JSR SP_FIND_DEVICE
-                JSR PRTX
-                JSR CROUT
+;                LDA #<FUJI_DISK_0_STR
+;                LDY #>FUJI_DISK_0_STR
+;                JSR SP_FIND_DEVICE
+;                JSR PRTX
+;                JSR CROUT
 
-                LDA #<NETWORK_STR
-                LDY #>NETWORK_STR
-                JSR SP_FIND_DEVICE
-                JSR PRTX
-                JSR CROUT
-        RTS
+;                LDA #<NETWORK_STR
+;                LDY #>NETWORK_STR
+;                JSR SP_FIND_DEVICE
+;                JSR PRTX
+;                JSR CROUT
 .ENDIF
 
 ; RELOCATE US TO WHERE IT'S SAFE
@@ -656,6 +655,23 @@ RESTORE_VECT:
                 JSR   STROUT
                 RTS
 
+;*******************************************
+NLIST:
+; &NLIST
+; Display devices
+
+.IF USE_TRACE
+                LDA #<NLIST_STR
+                LDY #>NLIST_STR
+                JSR  STROUT
+                JSR CROUT
+.ENDIF
+
+                JSR DISPLAY_SP_DEVICES
+
+                RTS
+
+
         .include "SMARTPORTCMDS.S"
 
 RELOCATE_CODE_END:
@@ -670,7 +686,7 @@ RELOCATE_CODE_END:
 
 ;*********************
 FUJIAPPLE_VER_STR:
-                .ASCIIZ "FUJIAPPLE VERSION: 20220223.1515"
+                .ASCIIZ "FUJIAPPLE VERSION: 20220223.1550"
 
 ADJUST_HIMEM_STR:
                 .BYTE $0D, "ADJUSTING HIMEM TO: ", $00
@@ -703,7 +719,6 @@ NOPEN_STR:      .ASCIIZ "NOPEN"                 ; NOPEN
 relocate001:    .WORD   NOPEN-1
 
                 .BYTE   'N', TOK_READ, 00       ; NREAD
-
 relocate002:    .WORD   NREAD-1
 
 NWRITE_STR:     .ASCIIZ "NWRITE"                ; NWRITE
@@ -712,16 +727,18 @@ relocate003:    .WORD   NWRITE-1
 NCTRL_STR:      .ASCIIZ "NCTRL"                 ; NCTRL
 relocate004:    .WORD   NCTRL-1
 
-                .BYTE   "NST", TOK_AT           ; NSTATUS
-                .ASCIIZ "US"
+                .BYTE   "NST", TOK_AT, "US", 0  ; NSTATUS
 relocate005:    .WORD   NSTATUS-1
 
 NCLOSE_STR:     .ASCIIZ "NCLOSE"                ; NCLOSE
 relocate006:    .WORD   NCLOSE-1
 
-                .BYTE   "N", TOK_END, 00        ; NEND
+                .BYTE   "N", TOK_END, 0         ; NEND
 relocate007:    .WORD   NEND-1   
-        
+
+                .BYTE   "N", TOK_LIST, 0        ; NLIST
+relocate008:    .WORD   NLIST-1
+
 ;*******************************************
 ;* END OF TABLE
 ;*******************************************
@@ -731,6 +748,7 @@ relocate007:    .WORD   NEND-1
 NREAD_STR:      .ASCIIZ "NREAD"
 NSTATUS_STR:    .ASCIIZ "NSTATUS"
 NEND_STR:       .ASCIIZ "NEND"
+NLIST_STR:      .ASCIIZ "NLIST"
 HIMEM_IS:       .ASCIIZ "CURRENT ADDRESS OF HIMEM: "
 RELOC_SIZE:     .BYTE   $0D
                 .ASCIIZ "RELOCATION SIZE: "
@@ -773,7 +791,7 @@ RELOCATE_DATA_END:
 .include "RELOCATION.S" 
 
 RELOCATION_TABLE:
-		.WORD 	relocate000+1,relocate001+1,relocate002,relocate003,relocate004,relocate005,relocate006,relocate007 ;,relocate008,relocate009
+		.WORD 	relocate000+1,relocate001+1,relocate002,relocate003,relocate004,relocate005,relocate006,relocate007;,relocate008,relocate009
 
 ;		.WORD 	relocate010+1,relocate011+1,relocate012+1,relocate013+1,relocate014+1,relocate015+1,relocate016+1,relocate017+1,relocate018+1,relocate019+1
 ;		.WORD   relocate020+1,relocate021+1,relocate022+1

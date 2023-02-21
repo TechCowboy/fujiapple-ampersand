@@ -486,8 +486,6 @@ NEXT_DEVICE:
 
                 ; EXHAUSTED OUR LIST
 
-                LDA #'N'
-                JSR COUT
                 LDX #$FF        ; NOT FOUND
 
                 CLC
