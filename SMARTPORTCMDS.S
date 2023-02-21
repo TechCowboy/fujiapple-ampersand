@@ -350,16 +350,9 @@ NEXT_DEV:
 
                 LDY #SP_STATUS_DIB      ; X = DEVICE 
                 JSR SP_STATUS
+                BCS DISPLAY_ERROR_OUT   ; SHOULD NEVER HAPPEN, BUT IF IT DOES, JUST EXIT
 
-                LDX #$00        
-NEXT_CHAR:
-                LDA SP_PAYLOAD+5,X      ; STRING
-                AND #$3F
-                ORA #$80
-                JSR COUT
-                INX
-                CPX SP_PAYLOAD+4        ; LENGTH OF STRING
-                BNE NEXT_CHAR
+                JSR PRINT_PAYLOAD
 
                 JSR CROUT
 
@@ -368,7 +361,18 @@ NEXT_CHAR:
                 INX
                 CPX NUM_DEVICES
                 BNE NEXT_DEV
-                
+                RTS
+DISPLAY_ERROR_OUT:
+                JSR PRTX
+
+                LDA #<UNIT_STR
+                LDY #>UNIT_STR
+                JSR STROUT
+
+                PLA
+                TAX
+                JSR PRTX
+
                 RTS
 
 FUJI_DISK_0_STR:        .ASCIIZ "FUJINET_DISK_0"
@@ -402,7 +406,6 @@ PPAYLOAD:
                 INX
                 CPX SP_PAYLOAD+4
                 BNE PPAYLOAD
-                JSR CROUT
 
                 PLA
                 TAY

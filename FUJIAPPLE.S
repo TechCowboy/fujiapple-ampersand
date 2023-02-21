@@ -98,6 +98,7 @@ FOUND_SMARTPORT:
 ;                JSR DISPLAY_SP_STATUS                   ; SHOW THE ID AND VERSION
                 JSR DISPLAY_SP_DEVICES                  ; SHOW ALL THE DEVICES
 
+        RTS
                 LDA #<FUJI_DISK_0_STR
                 LDY #>FUJI_DISK_0_STR
                 JSR SP_FIND_DEVICE
@@ -670,7 +671,7 @@ RELOCATE_CODE_END:
 
 ;*********************
 FUJIAPPLE_VER_STR:
-                .ASCIIZ "FUJIAPPLE VERSION: 20220223.1215"
+                .ASCIIZ "FUJIAPPLE VERSION: 20220223.1400"
 
 ADJUST_HIMEM_STR:
                 .BYTE $0D, "ADJUSTING HIMEM TO: ", $00
