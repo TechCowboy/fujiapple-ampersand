@@ -10,11 +10,42 @@
         .include "APPLEEQU.S"
         .include "ZEROPAGE.S"
 
-SP_CMD_STATUS           =       0
-SP_CMD_CONTROL          =       4
-SP_CMD_OPEN             =       6
-SP_CMD_READ             =       8
-SP_CMD_WRITE            =       9
+SP_CMD_STATUS           =       $00
+SP_CMD_READ_BLOCK       =       $01
+SP_CMD_WRITE_BLOCK      =       $02
+SP_CMD_FORMAT           =       $03
+SP_CMD_CONTROL          =       $04
+SP_CMD_INIT             =       $05
+SP_CMD_OPEN             =       $06
+SP_CMD_CLOSE            =       $07
+SP_CMD_READ             =       $08
+SP_CMD_WRITE            =       $09
+
+SP_STATUS_CODE          =       $00     ; RETURN DEVICE STATUS
+SP_STATUS_DIB           =       $03     ; RETURN DEVICE INFORMATION BLOCK
+SP_STATUS_DIB_EXTRA     =       $04     ; RETURN DEVICE INFORMATION BLOCK EXTRA
+SP_STATUS_LAST_ERROR    =       $05
+SP_STATUS_RETURN_DATA   =       $06     ; RETURN BYTES/BLOCK PARAMETER FOR DEVICE
+
+SP_ERROR_OK             =       $00
+SP_ERROR_BAD_CMD        =       $01
+SP_ERROR_BAD_PCNT       =       $02     ; BAD CALL PARAMETER COUNT
+SP_ERROR_BUS_ERR        =       $06
+SP_ERROR_BAD_UNIT       =       $11     ; UNIT NUMBER $00 WAS USED
+SP_ERROR_BAD_CTRL       =       $21     ; CTRL OR STATUS CODE WAS NOT SUPPORTED
+SP_ERROR_BAD_CTRL_PARM  =       $22     ; CTRL PARAMTER LIST CONTAINS INVALID INFO
+SP_ERROR_IO_ERROR       =       $27     
+SP_ERROR_NO_DRIVE       =       $28     ; DEVICE IS NOT CONNECTED
+SP_ERROR_NO_WRITE       =       $2B     ; MEDIUM IS WRITE PROTECTED
+SP_ERROR_BAD_BLOCK      =       $2D     ; BLOCK NUMBER IS OUTSIDE OF RANGE
+SP_ERROR_DISK_SW        =       $2E     ; DISK SWITCH TOOK PLACE
+SP_ERROR_OFFLINE        =       $2F     ; DEVICE OFFLINE OR NO DISK IN DRIVE
+SP_ERROR_DEV_SPEC0      =       $30     ; DEVICE SPECIFIC ERRORS
+SP_ERROR_DEV_SPECF      =       $3F     ; DEVICE SPECIFIC ERRORS
+;SP_ERROR_RESERVED $40-$4F
+SP_ERROR_NON_FATAL50    =       $50     ; DEVICE SPECIFIC WARNING
+SP_ERROR_NON_FATAL7F    =       $7F     ; DEVICE SPECIFIC WARNING        
+
 SP_STATUS_PARAM_COUNT   =       3
 SP_CONTROL_PARAM_COUNT  =       3
 SP_OPEN_PARAM_COUNT     =       1
@@ -230,6 +261,7 @@ DISPLAY_SP_STATUS:
                 LDX #$00                ; SMARTPORT DEVICE ZERO
                 LDY #$00
                 JSR SP_STATUS
+                LDX DCOUNT
 
                 LDA #<COUNT_STR         ; "DEVICE COUNT:"
                 LDY #>COUNT_STR
@@ -316,17 +348,19 @@ NEXT_DEV:
                 PHA
                 TAX
 
-                LDY #$03
+                LDY #SP_STATUS_DIB      ; X = DEVICE 
                 JSR SP_STATUS
 
                 LDX #$00        
 NEXT_CHAR:
                 LDA SP_PAYLOAD+5,X      ; STRING
+                AND #$3F
                 ORA #$80
                 JSR COUT
                 INX
                 CPX SP_PAYLOAD+4        ; LENGTH OF STRING
                 BNE NEXT_CHAR
+
                 JSR CROUT
 
                 PLA
@@ -340,10 +374,8 @@ NEXT_CHAR:
 FUJI_DISK_0_STR:        .ASCIIZ "FUJINET_DISK_0"
 NETWORK_STR:            .ASCIIZ "NETWORK"
 
-FIND_DEVICE_STR:        .ASCIIZ "FUJINET_DISK_0"
-                        .RES 255
-
-FIND_DEVICE_STR_LEN:    .BYTE 14
+FIND_DEVICE_STR:        .RES 255
+FIND_DEVICE_STR_LEN:    .BYTE 0
 
 ;*******************************
 ; SP_FIND_DEVICE
@@ -356,7 +388,29 @@ FIND_DEVICE_STR_LEN:    .BYTE 14
 ;   Y = Low byte address of string
 ;   X = Device number or $FF on failure
 ;*********************************
+PRINT_PAYLOAD:
+                PHA
+                TXA
+                PHA
+                TYA
+                PHA
+                LDX #$00
+PPAYLOAD:   
+                LDA SP_PAYLOAD+5,X      ; STRING
+                ORA #$80
+                JSR COUT
+                INX
+                CPX SP_PAYLOAD+4
+                BNE PPAYLOAD
+                JSR CROUT
 
+                PLA
+                TAY
+                PLA
+                TAX
+                PLA
+
+                RTS
 
 SP_FIND_DEVICE:
                 STA ZP1_LO
@@ -374,14 +428,17 @@ LOOK_FOR_NULL:
                 BCC LOOK_FOR_NULL
 
 GOT_LENGTH:     
-                STX FIND_DEVICE_STR_LEN
+                STX FIND_DEVICE_STR_LEN         ; LENGTH INCLUDES NULL
+        jsr PRTX
 
-                LDA #'!'
-                JSR COUT
+        LDA #'!'
+        JSR COUT
+        JSR CROUT
 
                 LDA #<FIND_DEVICE_STR
                 LDY #>FIND_DEVICE_STR
                 JSR STROUT
+                JSR CROUT
 
                 LDX #$00
                 LDY #$00
@@ -394,25 +451,50 @@ GOT_LENGTH:
                 LDX #$01
 
 NEXT_DEV2: 
-                LDA #'.'
-                JSR COUT
-
                 TXA
                 PHA 
 
-                LDY #$03                ; ? WHAT IS THIS COMMAND ?
+        LDA #'.'
+        JSR COUT
+        JSR CROUT
+
+        PLA
+        PHA
+        TAX
+
+                LDY #SP_STATUS_DIB      ; X IS DEVICE 
                 JSR SP_STATUS
+                BCS ERROR_OUT
 
                 LDA SP_PAYLOAD+4        ; LENGTH OF STRING
                 CMP FIND_DEVICE_STR_LEN
                 BNE NEXT_DEVICE
 
 ; SAME STRING LENGTH SO COMPARE
+
+        JSR PRINT_PAYLOAD
                 
                 LDX #$00        
 SCAN_CHAR:
+        LDA '-'
+        JSR COUT
+        TXA
+        PHA
+        LDA SP_PAYLOAD+5,X 
+        TAX
+        JSR PRTX
+        PLA
+        PHA
+        TAX
+        LDA FIND_DEVICE_STR,X
+        TAX
+        JSR PRTX
+        PLA
+        TAX
                 LDA SP_PAYLOAD+5,X      ; STRING
-                ORA #$80
+        JSR COUT
+                AND #$3F
+        jsr COUT
                 CMP FIND_DEVICE_STR,X
                 BNE NEXT_DEVICE
 
@@ -423,6 +505,9 @@ SCAN_CHAR:
                 CLC
                 BCC FOUND_DEVICE        ; WE FOUND OUR DEVICE
 NEXT_DEVICE:
+
+        LDA #'X'
+        JSR COUT
 
                 PLA
                 TAX
@@ -439,6 +524,11 @@ NEXT_DEVICE:
 
                 CLC
                 BCC FOUND_DONE
+
+ERROR_OUT:       
+                PLA
+                RTS
+
 FOUND_DEVICE:
                 LDA #'F'
                 JSR COUT  

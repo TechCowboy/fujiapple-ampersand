@@ -70,17 +70,17 @@ NINIT:
                 JSR CROUT
 
 .IF USE_TRACE
-                LDA #<DISPATCH_ADDRESS_STR              ; "SMARTPORT ADDRESS:"
-                LDY #>DISPATCH_ADDRESS_STR
-                JSR STROUT
+ ;               LDA #<DISPATCH_ADDRESS_STR              ; "SMARTPORT ADDRESS:"
+ ;               LDY #>DISPATCH_ADDRESS_STR
+ ;               JSR STROUT
 .ENDIF
                 JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
                 STA SMARTPORT_DISPATCHER+1              ; REMEMBER THE ADDRESS
                 STX SMARTPORT_DISPATCHER
 
 .IF USE_TRACE
-                JSR PRTAX                               ; PRINT THE ADDRESS
-                JSR CROUT
+ ;               JSR PRTAX                               ; PRINT THE ADDRESS
+ ;               JSR CROUT
 .ENDIF
 
                 LDA SMARTPORT_DISPATCHER+1
@@ -95,7 +95,7 @@ NINIT:
 FOUND_SMARTPORT:
 
 .IF USE_TRACE
-                JSR DISPLAY_SP_STATUS                   ; SHOW THE ID AND VERSION
+;                JSR DISPLAY_SP_STATUS                   ; SHOW THE ID AND VERSION
                 JSR DISPLAY_SP_DEVICES                  ; SHOW ALL THE DEVICES
 
                 LDA #<FUJI_DISK_0_STR
@@ -670,7 +670,7 @@ RELOCATE_CODE_END:
 
 ;*********************
 FUJIAPPLE_VER_STR:
-                .ASCIIZ "FUJIAPPLE VERSION: 20220222.2215"
+                .ASCIIZ "FUJIAPPLE VERSION: 20220223.1215"
 
 ADJUST_HIMEM_STR:
                 .BYTE $0D, "ADJUSTING HIMEM TO: ", $00

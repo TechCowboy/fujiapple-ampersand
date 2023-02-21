@@ -93,12 +93,13 @@ def add_file(files):
         time.sleep(my_speed)
         print("F")
         p.press("F")
-        time.sleep(my_speed)
+        time.sleep(0.4)
         
         p.keyDown("alt")
         p.press("n")
         p.keyUp("alt")
-        
+        time.sleep(my_speed)
+        			
         erase_field()
         time.sleep(my_speed)
         
@@ -129,7 +130,7 @@ def prodos_bin_file(files, address):
         
         
         do_tabs(4)
-        
+        '''
         for i in range(10):
             print(f"{i+1}/10 up ", end='')
             p.press("up")
@@ -141,6 +142,11 @@ def prodos_bin_file(files, address):
             p.press("down")
             time.sleep(my_speed)
         print()
+        '''
+        p.press('b')
+        time.sleep(my_speed)
+        p.press('b')
+        time.sleep(my_speed)
         
         do_tabs(1)
         
