@@ -432,11 +432,6 @@ LOOK_FOR_NULL:
 
 GOT_LENGTH:     
                 STX FIND_DEVICE_STR_LEN         ; LENGTH INCLUDES NULL
-        jsr PRTX
-
-        LDA #'!'
-        JSR COUT
-        JSR CROUT
 
                 LDA #<FIND_DEVICE_STR
                 LDY #>FIND_DEVICE_STR
@@ -457,14 +452,6 @@ NEXT_DEV2:
                 TXA
                 PHA 
 
-        LDA #'.'
-        JSR COUT
-        JSR CROUT
-
-        PLA
-        PHA
-        TAX
-
                 LDY #SP_STATUS_DIB      ; X IS DEVICE 
                 JSR SP_STATUS
                 BCS ERROR_OUT
@@ -474,30 +461,11 @@ NEXT_DEV2:
                 BNE NEXT_DEVICE
 
 ; SAME STRING LENGTH SO COMPARE
-
-        JSR PRINT_PAYLOAD
                 
                 LDX #$00        
 SCAN_CHAR:
-        LDA '-'
-        JSR COUT
-        TXA
-        PHA
-        LDA SP_PAYLOAD+5,X 
-        TAX
-        JSR PRTX
-        PLA
-        PHA
-        TAX
-        LDA FIND_DEVICE_STR,X
-        TAX
-        JSR PRTX
-        PLA
-        TAX
+
                 LDA SP_PAYLOAD+5,X      ; STRING
-        JSR COUT
-                AND #$3F
-        jsr COUT
                 CMP FIND_DEVICE_STR,X
                 BNE NEXT_DEVICE
 
@@ -508,9 +476,6 @@ SCAN_CHAR:
                 CLC
                 BCC FOUND_DEVICE        ; WE FOUND OUR DEVICE
 NEXT_DEVICE:
-
-        LDA #'X'
-        JSR COUT
 
                 PLA
                 TAX
@@ -530,11 +495,12 @@ NEXT_DEVICE:
 
 ERROR_OUT:       
                 PLA
+                LDX #$FE        ; ERROR
                 RTS
 
 FOUND_DEVICE:
-                LDA #'F'
-                JSR COUT  
+                PLA
+                TAX
 FOUND_DONE:              
                 RTS
 

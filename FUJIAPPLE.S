@@ -96,21 +96,20 @@ FOUND_SMARTPORT:
 
 .IF USE_TRACE
 ;                JSR DISPLAY_SP_STATUS                   ; SHOW THE ID AND VERSION
-                JSR DISPLAY_SP_DEVICES                  ; SHOW ALL THE DEVICES
+;                JSR DISPLAY_SP_DEVICES                  ; SHOW ALL THE DEVICES
 
-        RTS
                 LDA #<FUJI_DISK_0_STR
                 LDY #>FUJI_DISK_0_STR
                 JSR SP_FIND_DEVICE
                 JSR PRTX
                 JSR CROUT
 
-
                 LDA #<NETWORK_STR
                 LDY #>NETWORK_STR
                 JSR SP_FIND_DEVICE
                 JSR PRTX
                 JSR CROUT
+        RTS
 .ENDIF
 
 ; RELOCATE US TO WHERE IT'S SAFE
@@ -671,7 +670,7 @@ RELOCATE_CODE_END:
 
 ;*********************
 FUJIAPPLE_VER_STR:
-                .ASCIIZ "FUJIAPPLE VERSION: 20220223.1400"
+                .ASCIIZ "FUJIAPPLE VERSION: 20220223.1515"
 
 ADJUST_HIMEM_STR:
                 .BYTE $0D, "ADJUSTING HIMEM TO: ", $00
