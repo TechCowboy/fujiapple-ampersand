@@ -25,7 +25,7 @@
 ;}
 
 USE_TRACE  = 1
-RELOCATE   = 1
+RELOCATE   = 0
 PRODOS     = 1
 APPLEII    = 1
 
@@ -64,6 +64,11 @@ STARTOFFILE:
 
 NINIT:
 
+                LDA #<FUJIAPPLE_VER_STR                 ; "VERSON: YYYYMMDD.HHMM"
+                LDY #>FUJIAPPLE_VER_STR
+                JSR STROUT
+                JSR CROUT
+
 .IF USE_TRACE
                 LDA #<DISPATCH_ADDRESS_STR              ; "SMARTPORT ADDRESS:"
                 LDY #>DISPATCH_ADDRESS_STR
@@ -89,6 +94,23 @@ NINIT:
 
 FOUND_SMARTPORT:
 
+.IF USE_TRACE
+                JSR DISPLAY_SP_STATUS                   ; SHOW THE ID AND VERSION
+                JSR DISPLAY_SP_DEVICES                  ; SHOW ALL THE DEVICES
+
+                LDA #<FUJI_DISK_0_STR
+                LDY #>FUJI_DISK_0_STR
+                JSR SP_FIND_DEVICE
+                JSR PRTX
+                JSR CROUT
+
+
+                LDA #<NETWORK_STR
+                LDY #>NETWORK_STR
+                JSR SP_FIND_DEVICE
+                JSR PRTX
+                JSR CROUT
+.ENDIF
 
 ; RELOCATE US TO WHERE IT'S SAFE
 
@@ -647,6 +669,9 @@ RELOCATE_CODE_END:
 ;***********
 
 ;*********************
+FUJIAPPLE_VER_STR:
+                .ASCIIZ "FUJIAPPLE VERSION: 20220222.2215"
+
 ADJUST_HIMEM_STR:
                 .BYTE $0D, "ADJUSTING HIMEM TO: ", $00
 

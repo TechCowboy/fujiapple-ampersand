@@ -1,3 +1,11 @@
+;*****************************************************
+; ZEROPAGE
+; "Safe" locations to use in zero page
+; define APPLEII for Apple II zero page
+; define ATARI   for Atari 8-bit zero page
+;
+; By Norman Davie
+
 .IF .DEFINED(ZP1)
 
 ; ALREADY INCLUDED

@@ -4,8 +4,9 @@ import time
 from subprocess import Popen, PIPE
 
 filename   = [ "FUJIAPPLE"]
+pconvert   = [ 0x2000 ]
 pfilenames = [ "FUJIAPPLE"  ]
-pfilenamed = [ "FUJIAPPLEP" ]
+pfilenamed = [ "FUJIAPPLE" ]
 dosdisk   = "FUJIAPPLE.dsk"
 prodisk   = "FUJIAPPLE.po"
 
@@ -304,7 +305,7 @@ def convert_dos_bin_to_prodos(src, tgt):
 
 if __name__ == "__main__":
     
-    do_dos = True
+    do_dos = False
     
     if do_dos:
         quit_program = False
@@ -315,8 +316,12 @@ if __name__ == "__main__":
         start_program = True
     
     for i in range(len(pfilenames)):
-        address = convert_dos_bin_to_prodos(pfilenames[i], pfilenamed[i])
-        ProDOS_version(prodisk, pfilenamed[i], address)
+        address = pconvert[i]
+        if address == 0:
+            address = convert_dos_bin_to_prodos(pfilenames[i], pfilenamed[i])
+        else:
+            address = hex(address)[2:]
+        ProDOS_version(prodisk, [ pfilenamed[i] ], address)
     
     print("Copy to TNFS server...")
 
