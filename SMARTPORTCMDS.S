@@ -46,12 +46,13 @@ SP_ERROR_DEV_SPECF      =       $3F     ; DEVICE SPECIFIC ERRORS
 SP_ERROR_NON_FATAL50    =       $50     ; DEVICE SPECIFIC WARNING
 SP_ERROR_NON_FATAL7F    =       $7F     ; DEVICE SPECIFIC WARNING        
 
+SP_INIT_PARAM_COUNT     =       3
+SP_OPEN_PARAM_COUNT     =       3
+SP_CLOSE_PARAM_COUNT    =       3
+;SP_READ_PARAM_COUNT     =       4
+;SP_WRITE_PARAM_COUNT    =       4 SIZE VARIES
 SP_STATUS_PARAM_COUNT   =       3
 SP_CONTROL_PARAM_COUNT  =       3
-SP_OPEN_PARAM_COUNT     =       1
-SP_READ_PARAM_COUNT     =       4
-SP_WRITE_PARAM_COUNT    =       4
-
 
 
 
@@ -180,6 +181,7 @@ DONE:
 CMD_LIST:
 CMD_LIST_PCOUNT:.BYTE   $FF             ; PARAMETER COUNT
 CMD_LIST_DEST:  .BYTE   $FF             ; DESTINATION DEVICE NUMBER
+relocatesp00:
 CMD_LIST_RESULT:.WORD   SP_PAYLOAD      ; DATA RETURN HERE
 CMD_LIST_STAT:  .BYTE   $FF             ; STATUS CODE
 
@@ -197,6 +199,181 @@ INTERFACEVER:   .WORD   $FFFF           ; INTERFACE VERSION
 
 SP_COUNT:       .WORD   $FFFF           ; BYTES IN PAYLOAD?
 
+;******************************************************************
+; SP_OPEN
+; The Open command opens a logical me on the target device for data I/0. This
+; command is used for character devices only. The parameter list for this call is as
+; follows:
+; Byte Definition
+; 0     parameter list length ($03)
+; 1     unit number
+
+SP_OPEN:
+                LDA #SP_OPEN_PARAM_COUNT        ; 3
+                STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
+                STX CMD_LIST_DEST               ; DESTINATION DEVICE
+                JSR CALL_DISPATCHER
+
+                .BYTE SP_CMD_OPEN
+relocatesp01:   .WORD CMD_LIST
+                
+                BCS OPEN_ERROR
+
+                BCC SP_OPEN_DONE
+OPEN_ERROR:
+                PHA
+                LDA #<SP_ERROR
+                LDY #>SP_ERROR
+                JSR STROUT
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
+
+SP_OPEN_DONE:
+
+                RTS
+
+;******************************************************************
+; SP_CLOSE
+; The Close command closes a logical file on the target device after a data I/O
+; sequence is completed. This command is used for character devices only. The
+; parameter list for this call is as follows:
+; Byte Definition
+; 0     parameter list length ($03)
+; 1     unit number
+
+SP_CLOSE:
+                LDA #SP_CLOSE_PARAM_COUNT       ; 3
+                STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
+                STX CMD_LIST_DEST               ; DESTINATION DEVICE
+                JSR CALL_DISPATCHER
+
+                .BYTE SP_CMD_CLOSE
+relocatesp02:   .WORD CMD_LIST
+                
+                BCS CLOSE_ERROR
+
+                BCC SP_CLOSE_DONE
+CLOSE_ERROR:
+                PHA
+                LDA #<SP_ERROR
+                LDY #>SP_ERROR
+                JSR STROUT
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
+
+SP_CLOSE_DONE:
+
+                RTS
+
+
+;******************************************************************
+; SP_CONTROL
+;The Control command provides two basic functions. The first is to execute device
+;control routines designed by Apple. The second is to execute SCSI commands. The
+;command interpreter handles all of the functions required to execute the routine or
+;command, including the routines necessary to read your routine or command out
+;of RAM and pass it to the device, and receive any data returned by the command
+;and write it into the RAM address you have specified (where appropriate).
+;If you need to use a SCSI command not supported by a SmartPort control code, you
+;must write some special code in order to pass your command to the interpreter. See
+;Appendix B for details on using unsupported SCSI commands with the command
+;interpreter.
+;If there is a particular unsupported call that you use frequently, it is possible to
+;patch it into the SCSI card RAM. This allows the command to be treated by the
+;command interpreter just as if it were a supported command. To do this, use
+;PatchlCall ($1E).
+;Although each control code has its own parameter list, the following generic list
+;shows the basic format they all adhere to.
+;Byte   Definition
+;0      parameter list length ($03 or $04)
+;1      unit number
+;2-3    pointer (lsb--msb)
+;4      control code
+;5      transfer count
+
+SP_CONTROL:
+
+                LDA #SP_CONTROL_PARAM_COUNT        ; 3
+                STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
+                STX CMD_LIST_DEST               ; DESTINATION DEVICE
+                JSR CALL_DISPATCHER
+
+                .BYTE SP_CMD_CONTROL
+relocatesp03:   .WORD CMD_LIST
+                
+                BCS CTRL_ERROR
+
+                BCC SP_CTRL_DONE
+CTRL_ERROR:
+                PHA
+                LDA #<SP_ERROR
+                LDY #>SP_ERROR
+                JSR STROUT
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
+
+SP_CTRL_DONE:
+
+                RTS
+
+;The Read command reads a specified number of bytes from the target device
+;specified in the unit number parameter. The bytes read by this command are
+;written into RAM, beginning at the address specified in the data buffer pointer. The
+;number of bytes to be read is specified in the byte count parameter. The parameter
+;list for this call is as follows:
+;ByteDefinition
+;0parameter list length ($04)
+;unit number
+;buffer pointer
+;byte count
+;address pointer
+;1
+;2-3
+;4-5
+;6-7
+;Parameter description
+;unit number: This parameter contains the SmartPort unit number of the target SCSI
+;device. See Chapter 2 for details on selecting the correct SmartPort unit number for
+;your target device.
+;data buffer pointer: This parameter contains the beginning address of the host data
+;buffer to which the target bytes are written.
+;byte count: This parameter contains the number of bytes to read for this
+;command.
+;addresa pointer: This parameter contains the block address of the target block.
+
+;The Write command writes a specified number of bytes to the target device
+;specified in the unit number p4rameter. The bytes written by this command are
+;read from RAM, beginning at the address specified in the data buffer pointer. The
+;number of bytes to be written is specified in the byte count parameter. The
+;parameter list for this call is as follows:
+;ByteDefinition
+;0
+;1
+;2-3
+;4-5
+;6-7parameter list length
+;unit number
+;buffer pointer
+;byte count
+;address pointer
+;34
+;Chapter 3: The FirmwareParameter description
+;unit number: This parameter contains the SmartPort unit number of the target SCSI
+;device. See Chapter 2 for details on selecting the correct SmartPort unit number for
+;your target device.
+;data buffer pointer: This parameter contains the beginning address of the data
+;buffer from which the target bytes are written.
+;byte count: This parameter contains the number of bytes to write for this
+;command.
+;address pointer: This parameter contains the block address of the target block.
+
+
 SP_STATUS:
                 LDA #SP_STATUS_PARAM_COUNT
                 STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
@@ -205,7 +382,7 @@ SP_STATUS:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
-                .WORD CMD_LIST
+relocatesp04:   .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT
@@ -415,6 +592,7 @@ PPAYLOAD:
 
                 RTS
 
+;***************************************************************
 SP_FIND_DEVICE:
                 STA ZP1_LO
                 STY ZP1_HI
@@ -500,6 +678,51 @@ FOUND_DEVICE:
                 PLA
                 TAX
 FOUND_DONE:              
+                RTS
+
+
+;void connect(void)
+;{
+;  sp_open(net);
+;  sp_payload[0]=0x02; // 258 bytes
+;  sp_payload[1]=0x01;
+;  sp_payload[2]=0x0C; // READ/WRITE (or GET)
+;  sp_payload[3]=0x80; // NO TRANSLATION
+;  memcpy(&sp_payload[4],url,256)
+;  sp_control(net,'O'); // Do the open.  ;
+;}
+
+;bool isConnected(void)
+;{
+;  sp_status(net,'S');
+;  return sp_payload[2] & 0x02; // Bit 2 = Connected?
+;}
+
+
+; X = DEVICE
+FN_IS_CONNECTED:
+        LDY #'S'
+        JSR SP_STATUS
+        LDA PAYLOAD+2
+        AND #$02
+        ROR
+        RTS
+
+; X = DEVICE 
+FN_BYTES_WAITING:
+        LDY #'S'
+        JSR SP_STATUS
+        LDA SP_PAYLOAD
+        LDY SP_PAYLOAD+1
+        RTS
+
+        
+; X=DEVICE
+FIND_NETWORK:
+                LDA #<NETWORK_STR
+                LDY #>NETWORK_STR
+                JSR SP_FIND_DEVICE
+
                 RTS
 
 

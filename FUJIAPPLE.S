@@ -109,6 +109,7 @@ FOUND_SMARTPORT:
 ;                JSR SP_FIND_DEVICE
 ;                JSR PRTX
 ;                JSR CROUT
+
 .ENDIF
 
 ; RELOCATE US TO WHERE IT'S SAFE
@@ -128,7 +129,7 @@ FOUND_SMARTPORT:
 
 .IF RELOCATE
 		JSR ADJUST_HIMEM        ; Move HIMEM so we can put our code at it. 
-
+.ENDIF
 		LDA #<RELOCATING        ; "RELOCATING TO:"
 		LDY #>RELOCATING
 		JSR STROUT
@@ -137,6 +138,7 @@ FOUND_SMARTPORT:
 		JSR PRTAX               ; PRINT NEW HIMEM ADDRESS
                 JSR CROUT
 
+.IF RELOCATE
                 JSR RELOCATE_TO_HIMEM   ; copy the code and data, adjust all absolute addresses
 .ENDIF
 
@@ -572,32 +574,46 @@ NSTATUS:
 .IF USE_TRACE
                 LDA #<NSTATUS_STR
                 LDY #>NSTATUS_STR
-                JSR  STROUT
+                JSR STROUT
                 JSR CROUT
 .ENDIF
 
-                JSR   GETBYT
-                STA   UNIT       ; STORE THE UNIT NUMBER
+                JSR GETBYT
+                STA UNIT       ; STORE THE UNIT NUMBER
 
-                JSR   CHKCOM
+                JSR CHKCOM
 
 ;******* TO DO *******
-;* GET BYTES WAITING AND STORE IN BW
-;* GET CONNECTED STATE AND STORE IN CONNECT
-;* GET ERROR VALUE AND STORE IN NERR
+;* GET BYTES WAITING AND STORE IN BW - DONE
+;* GET CONNECTED STATE AND STORE IN CONNECT - DONE
+;* GET ERROR VALUE AND STORE IN NERR - TODO
 ;*********************
 
-                LDA   BW+1       ; NUMBER OF BYTES WAITING
-                LDY   BW
-                JSR   WORDSAV    ; CONVERT TO FLOAT AND STORE IN BW VAR
+                LDX UNIT                ; GET BYTES WAITING
+                JSR FN_BYTES_WAITING
+                STA BW
+                STY BW+1
 
-                JSR   CHKCOM
-                LDY   CONNECT
-                JSR   BYTESAV    ; CONVERT TO FLOAT AND STORE IN CONNECT VAR
+                LDX UNIT
+                JSR FN_IS_CONNECTED     ; GET CONNECTED STATE
+                STA CONNECT
 
-                JSR   CHKCOM
-                LDY   NERR
-                JSR   BYTESAV    ; CONVERT TO FLOAT AND STORE IN NERR VAR
+                LDY #$00                ; GET ERROR VALUE
+                STA NERR
+
+                ; SEND TO BASIC
+
+                LDA BW+1       ; NUMBER OF BYTES WAITING
+                LDY BW
+                JSR WORDSAV    ; CONVERT TO FLOAT AND STORE IN BW VAR
+
+                JSR CHKCOM
+                LDY CONNECT
+                JSR BYTESAV    ; CONVERT TO FLOAT AND STORE IN CONNECT VAR
+
+                JSR CHKCOM
+                LDY NERR
+                JSR BYTESAV    ; CONVERT TO FLOAT AND STORE IN NERR VAR
                 RTS
 
 ;*******************************************
@@ -686,7 +702,7 @@ RELOCATE_CODE_END:
 
 ;*********************
 FUJIAPPLE_VER_STR:
-                .ASCIIZ "FUJIAPPLE VERSION: 20220223.1550"
+                .ASCIIZ "FUJIAPPLE VERSION: 20220223.1810"
 
 ADJUST_HIMEM_STR:
                 .BYTE $0D, "ADJUSTING HIMEM TO: ", $00
