@@ -37,6 +37,7 @@ LOOK_FOR_NULL2:
                 BCC LOOK_FOR_NULL2
 
 GOT_LENGTH2:
+            
                 ; STX URL_LEN         ; X = LENGTH INCLUDES NULL
 
                 RTS

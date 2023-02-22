@@ -1,6 +1,28 @@
 .IF USE_SP
     ; DON'T USE THIS CODE
 .ELSE
+
+
+CPY_STR_TO_SP_PAYLOAD:
+                STA ZP1_LO
+                STY ZP1_HI
+                
+                LDX #$00
+                LDY #$00
+LOOK_FOR_NULL3:
+                LDA (ZP1),Y
+                STA SP_PAYLOAD+5,X 
+                BEQ GOT_LENGTH3
+                INY
+                INX
+                CLC
+                BCC LOOK_FOR_NULL3
+
+GOT_LENGTH3:
+                STX SP_PAYLOAD+4         ; X = LENGTH INCLUDES NULL
+
+
+
 FIND_SMARTPORT_SLOT:
 
                 LDA #$C5                ; FAKE SMARTPORT FOR TESTING $C500
@@ -27,7 +49,15 @@ SP_STATUS:
 
                 LDA #<NETWORK_STR
                 LDY #>NETWORK_STR
-                JSR CPY_STR_TO_PAYLOAD
+                JSR CPY_STR_TO_SP_PAYLOAD
+                INX
+                INX
+                INX
+                INX
+                STX SP_COUNT
+                LDY #$00
+                STY SP_COUNT+1
+
 NOT_STATUS:
                 JSR CALL_DISPATCHER
 
