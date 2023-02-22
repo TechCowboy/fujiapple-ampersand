@@ -1,0 +1,37 @@
+ 10  PRINT  CHR$ (4);"BRUN /FUJI.APPLE/FUJIAPPLE"
+
+ 20  & N LIST 
+
+ 30 F = 1
+ 40 BW = 255:CN = 255:NE = 255
+ 50  GOSUB 1000
+ 
+ 60 OS = 4
+ 70  GOSUB 2000
+ 
+ 90  GOSUB 3000
+ 
+ 990 END
+ 
+ 
+ 1000  REM  ********************
+ 1010  REM  NSTATUS TEST
+ 1020  REM  ********************
+ 1030  & NSTATUS F,BW,CN,NE
+ 1040  PRINT "F:";F;"|BW: ";BW;"|CN: ";CN;"|NE: ";NE
+ 1990  RETURN
+ 
+ 2000  REM  ********************
+ 2010  REM  NOPEN TEST
+ 2020  REM  ********************
+ 2030  & NOPEN F,OS,TR,"N:HTTP://WWW.GNU.ORG/LICENSE/GPL-3.0.TXT"
+ 2990  RETURN
+ 
+  
+ 2000  REM  ********************
+ 2010  REM  NCLOSE TEST
+ 2020  REM  ********************
+ 3030  & NCLOSE F
+ 3990  RETURN 
+ 
+ 

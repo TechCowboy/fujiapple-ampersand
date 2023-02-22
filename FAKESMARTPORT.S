@@ -22,7 +22,7 @@ SP_STATUS:
                 STX CMD_LIST_DEST               ; DESTINATION DEVICE
                 STY CMD_LIST_STAT               ; STATUS CODE
 
-                CPY #SP_STATUS_DIB
+                CPY #SP_CMD_STATUS
                 BNE NOT_STATUS
 
                 LDA #<NETWORK_STR

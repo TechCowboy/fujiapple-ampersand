@@ -529,7 +529,7 @@ DISPLAY_SP_DEVICES:
                 JSR CROUT
 
                 LDX #$00
-                LDY #$00
+                LDY #SP_CMD_STATUS
                 JSR SP_STATUS
 
                 LDX DCOUNT
