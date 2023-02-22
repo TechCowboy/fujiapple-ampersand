@@ -350,8 +350,23 @@ NOPEN:
                 JSR CROUT
 .ENDIF
 
-                JSR GETBYT     ; GET THE UNIT
-                STX UNIT
+                JSR GETBYT      ; GET THE UNIT
+                STX UNIT        
+
+                CPX #$04       
+                BMI UNIT_OK1    ; OUT OF RANGE?
+
+                LDX #ILLEGAL_QUANTITY_ERROR
+                JMP APPLESOFT_ERROR
+
+                
+UNIT_OK1:
+                LDA #<NETWORK_STR       ; TEMPORARY -- WE'LL BE SWITCHING TO NETWORK_0, ETC.
+                LDY #>NETWORK_STR
+                JSR SP_FIND_DEVICE
+                TXA
+                LDX UNIT
+                STA NETWORK, X  ; THIS IS THE ACTUAL UNIT NUMBER
 
                 JSR CHKCOM
                 JSR GETBYT     ; GET MODE
@@ -413,15 +428,19 @@ NCLOSE:
                 LDY #>NCLOSE_STR
                 JSR  STROUT
                 JSR CROUT
+
 .ENDIF
 
                 JSR   GETBYT     ; GET THE UNIT
                 STX   UNIT
+                
 
 ;****** TO DO *****
 ; CALL FUJINET ROUTINE TO CLOSE
 ;*****************
 
+                LDA #$FF
+                STA NETWORK, X
                 RTS
 
 ;*********************************************
@@ -457,6 +476,17 @@ NREAD:
                 INY
                 LDA   DSCTMP+2
                 STA   (VARPTR),Y
+
+                LDA NETWORK,X
+                CMP #$FF
+                BNE UNIT_OK2
+
+                LDA #<NOT_OPENED
+                LDY #>NOT_OPENED
+                JSR STROUT
+                JMP SYNERR
+
+UNIT_OK2:
 
 ;****** TO DO ******
 ; CALL FUJINET READ FOR 'BUFLEN' BYTES
@@ -508,6 +538,16 @@ COPYBUF:
                 DEY
                 BPL   COPYBUF
 
+                LDX UNIT
+                LDA NETWORK,X
+                CMP #$FF
+                BNE UNIT_OK2
+
+                LDA #<NOT_OPENED
+                LDY #>NOT_OPENED
+                JSR STROUT
+                JMP SYNERR
+
 ;****** TO DO *********
 ; BUF NOW CONTAINS DATA
 ; TO BE SENT
@@ -557,6 +597,17 @@ CPY2BUF:
                 DEY
                 BPL   CPY2BUF
 ;*
+
+                LDA NETWORK,X
+                CMP #$FF
+                BNE UNIT_OK4
+
+                LDA #<NOT_OPENED
+                LDY #>NOT_OPENED
+                JSR STROUT
+                JMP SYNERR
+                
+UNIT_OK4:
 ;****** TO DO *******
 ; UNIT, COMMAND ARE STORED
 ; AND PAYLOAD$ IS IN PAYLOAD
@@ -595,6 +646,18 @@ NSTATUS:
                 STY BW+1
 
                 LDX UNIT
+
+                LDA NETWORK,X
+                CMP #$FF
+                BNE UNIT_OK3
+
+                LDA #<NOT_OPENED
+                LDY #>NOT_OPENED
+                JSR STROUT
+                JMP SYNERR
+                
+UNIT_OK3:
+
                 JSR FN_IS_CONNECTED     ; GET CONNECTED STATE
                 STA CONNECT
 
@@ -772,6 +835,7 @@ DISPATCH_ADDRESS_STR:
                 .ASCIIZ "DISPATCHER ADDRESS: "
 .ENDIF
 SP_NOT_FOUND:   .ASCIIZ "SMARTPORT NOT FOUND!"
+NOT_OPENED:     .ASCIIZ "UNIT NOT OPENED!"
 
 PREVECT:        .RES 3                  ; JUMP TO CONTENTS OF THE PREVIOUS AMPERSAND VECTOR
 OLDHIMEM:       .RES 2                  ; VALUE OF ORIGINAL HIMEM
@@ -793,6 +857,7 @@ BUFLEN:         .BYTE         0
 STRADDR:        .WORD         0
 STRBUF:         .RES          255
 STRLEN:         .BYTE         0
+NETWORK:        .BYTE         $FF, $FF, $FF, $FF
 
 
 
