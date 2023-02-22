@@ -28,9 +28,12 @@ USE_TRACE  = 1
 RELOCATE   = 0
 PRODOS     = 1
 APPLEII    = 1
+USE_SP     = 0  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
+
+START      = $4000
 
 .IF PRODOS
-        .ORG $2000
+        .ORG START
 
 ; NO HEADER FOR PRODOS
 
@@ -38,7 +41,7 @@ APPLEII    = 1
 
 ; WE SUBRACT 4 TO ALLOW ROOM FOR THE ADDRESS AND LENGTH FIELDS AT THE START OF THE FILE
 
-        .ORG $2000 - 4 
+        .ORG START - 4 
 
 ; HEADER FOR BINARY FILES ON DOS 3.3
 
@@ -74,14 +77,8 @@ NINIT:
  ;               LDY #>DISPATCH_ADDRESS_STR
  ;               JSR STROUT
 .ENDIF
-                JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
-                STA SMARTPORT_DISPATCHER+1              ; REMEMBER THE ADDRESS
-                STX SMARTPORT_DISPATCHER
 
-.IF USE_TRACE
- ;               JSR PRTAX                               ; PRINT THE ADDRESS
- ;               JSR CROUT
-.ENDIF
+                JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
 
                 LDA SMARTPORT_DISPATCHER+1
                 CMP #$FF                                ; WAS THE CARD FOUND?
@@ -95,7 +92,7 @@ NINIT:
 FOUND_SMARTPORT:
 
 .IF USE_TRACE
-;                JSR DISPLAY_SP_STATUS                   ; SHOW THE ID AND VERSION
+                JSR DISPLAY_SP_STATUS                   ; SHOW THE ID AND VERSION
 ;                JSR DISPLAY_SP_DEVICES                  ; SHOW ALL THE DEVICES
 
 ;                LDA #<FUJI_DISK_0_STR
@@ -129,7 +126,7 @@ FOUND_SMARTPORT:
 
 .IF RELOCATE
 		JSR ADJUST_HIMEM        ; Move HIMEM so we can put our code at it. 
-.ENDIF
+
 		LDA #<RELOCATING        ; "RELOCATING TO:"
 		LDY #>RELOCATING
 		JSR STROUT
@@ -138,7 +135,6 @@ FOUND_SMARTPORT:
 		JSR PRTAX               ; PRINT NEW HIMEM ADDRESS
                 JSR CROUT
 
-.IF RELOCATE
                 JSR RELOCATE_TO_HIMEM   ; copy the code and data, adjust all absolute addresses
 .ENDIF
 
@@ -176,8 +172,12 @@ SAVEVECT:
                 LDA #<EXTADDED          ; "FUJINET EXTENSION ADDED"
                 LDY #>EXTADDED          
                 JSR STROUT
-                JMP DOSWARM             ; WARM START DOS-NEEDED FOR BRUN
+.IF PRODOS
                 RTS
+.ELSE
+                JMP DOSWARM             ; WARM START DOS-NEEDED FOR BRUN
+.ENDIF
+
 
 RELOCATE_CODE_START:
 
@@ -374,7 +374,7 @@ UNIT_OK1:
 
                 JSR CHKCOM
                 JSR GETBYT     ; GET TRANS
-                STX TRANS
+                STX TRANSLATION
 
                 JSR CHKCOM
                 JSR CHRGOT     ; WHAT ARE WE POINTING AT IN BASIC
@@ -399,6 +399,7 @@ VARSTR:
                 JSR GETSTRVAR  ; IT'S A STRING VARIABLE
 STORE:
                 LDY DSCTMP     ; GET THE STRING LENGTH
+                STY URL_LEN
 STORING:
                 LDA (DSCTMP+1),Y
                 STA URL,Y
@@ -752,6 +753,8 @@ NLIST:
 
 
         .include "SMARTPORTCMDS.S"
+        .include "FAKESMARTPORT.S"
+        .include "FUJINET.S"
 
 RELOCATE_CODE_END:
 
@@ -845,8 +848,9 @@ OLDHIMEM:       .RES 2                  ; VALUE OF ORIGINAL HIMEM
 ;***************************************
 UNIT:           .BYTE         0
 MODE:           .BYTE         0
-TRANS:          .BYTE         0
+TRANSLATION:    .BYTE         0
 URL:            .RES          255
+URL_LEN:        .BYTE         0
 COMMAND:        .BYTE         0
 PAYLOAD:        .RES          255
 BW:             .WORD         0        ; BYTES WAITING

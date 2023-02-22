@@ -63,6 +63,29 @@ DISPATCHER_ADDR_HI:
                 .BYTE $00
 
 
+CMD_LIST:
+CMD_LIST_PCOUNT:.BYTE   $FF             ; PARAMETER COUNT
+CMD_LIST_DEST:  .BYTE   $FF             ; DESTINATION DEVICE NUMBER
+relocatesp00:
+CMD_LIST_RESULT:.WORD   SP_PAYLOAD      ; DATA RETURN HERE
+CMD_LIST_STAT:  .BYTE   $FF             ; STATUS CODE
+
+
+SP_PAYLOAD:
+DCOUNT:         .BYTE   $01             ; NUMBER OF DEVICES
+INTSTATE:       .BYTE   $FF             ; INTERRUPT STATUS (IF BIT 6 IS SET, THEN NO INTERRUPT)
+MANUFACTURER:   .WORD   $FFFF           ; DRIVER MANUFACTURER
+                                        ; $0000 - UNDETERMINED
+                                        ; $0001 - APPLE
+                                        ; $0002-$FFFF 3RD PARTY DRIVER
+INTERFACEVER:   .WORD   $FFFF           ; INTERFACE VERSION
+                .WORD   $0000           ; RESERVED (MUST BE $0000)
+                .RES    255
+
+SP_COUNT:       .WORD   $FFFF           ; BYTES IN PAYLOAD?
+
+
+
 SLOT_ADDR		=	ZP2
 SLOT_ADDR_LO	    	=	ZP2_LO
 SLOT_ADDR_HI		=	ZP2_HI
@@ -78,6 +101,7 @@ SLOT_ADDR_HI		=	ZP2_HI
 ;   A = $CX - WHERE X IS THE SLOT
 ;**********************************
 
+.IF USE_SP
 FIND_SMARTPORT_SLOT:
 
                 LDA     #$C7            ; START AT SLOT 7 ($C700)
@@ -108,6 +132,8 @@ NEXT_SLOT:
                 CPX #$C0                ; HAVE WE GONE BELOW SLOT 1?
                 BEQ NOT_FOUND           ; WE'RE DONE
                 BNE SCAN                ; CONTINUE SCANNING
+
+
 FOUND:
                 LDA SLOT_ADDR_HI
                 RTS                     ; WE FOUND IT! A = SLOT ADDRESS
@@ -117,7 +143,7 @@ NOT_FOUND:
                 RTS
         
 SMARTPORT_ID:   .BYTE $20, $00, $03, $00 
-
+.ENDIF
 ;*******************************
 ; GET_SMARTPORT_DISPATCH_ADDRESS
 ; INPUT:
@@ -129,7 +155,7 @@ SMARTPORT_ID:   .BYTE $20, $00, $03, $00
 ; OR A AND X WILL BE SET TO $FF
 ; IF DISPATCHER NOT FOUND
 ;**********************************
-
+.IF USE_SP
 GET_SMARTPORT_DISPATCH_ADDRESS:
                 JSR FIND_SMARTPORT_SLOT 
                 CMP #$FF                ; IF A == $FF THEN NOT FOUND
@@ -166,38 +192,12 @@ GET_SMARTPORT_DISPATCH_ADDRESS:
 NO_DISPATCHER:
                 LDA #$FF                ; NO ADDRESS FOUND
                 LDX #$FF
-
 DONE:        
                 RTS
-
-;*******************************
-; SP_STATUS
-;   Get smartport status
-; INPUT:
-;   X - DESTINATION DEVICE
-;   Y - 
-;**********************************
-
-CMD_LIST:
-CMD_LIST_PCOUNT:.BYTE   $FF             ; PARAMETER COUNT
-CMD_LIST_DEST:  .BYTE   $FF             ; DESTINATION DEVICE NUMBER
-relocatesp00:
-CMD_LIST_RESULT:.WORD   SP_PAYLOAD      ; DATA RETURN HERE
-CMD_LIST_STAT:  .BYTE   $FF             ; STATUS CODE
+.ENDIF
 
 
-SP_PAYLOAD:
-DCOUNT:         .BYTE   $FF             ; NUMBER OF DEVICES
-INTSTATE:       .BYTE   $FF             ; INTERRUPT STATUS (IF BIT 6 IS SET, THEN NO INTERRUPT)
-MANUFACTURER:   .WORD   $FFFF           ; DRIVER MANUFACTURER
-                                        ; $0000 - UNDETERMINED
-                                        ; $0001 - APPLE
-                                        ; $0002-$FFFF 3RD PARTY DRIVER
-INTERFACEVER:   .WORD   $FFFF           ; INTERFACE VERSION
-                .WORD   $FFFF           ; RESERVED (MUST BE $0000)
-                .RES    255
 
-SP_COUNT:       .WORD   $FFFF           ; BYTES IN PAYLOAD?
 
 ;******************************************************************
 ; SP_OPEN
@@ -295,8 +295,40 @@ SP_CLOSE_DONE:
 ;4      control code
 ;5      transfer count
 
+;int8_t sp_control(uint8_t dest, uint8_t ctrlcode)
+;{
+;  sp_error = 0;
+;  // build the command list
+;  sp_cmdlist[0] = SP_CONTROL_PARAM_COUNT; 
+;  sp_cmdlist[1] = dest; // set before calling sp_status();
+;  sp_cmdlist[2] = (uint8_t)((uint16_t)&sp_payload & 0x00FF);
+;  sp_cmdlist[3] = (uint8_t)((uint16_t)&sp_payload >> 8) & 0xFF;
+;  sp_cmdlist[4] = ctrlcode;
+;
+;  sp_cmdlist_low = (uint8_t)((uint16_t)&sp_cmdlist & 0x00FF);
+;  sp_cmdlist_high = (uint8_t)((uint16_t)&sp_cmdlist >> 8) & 0xFF;;
+;
+ ; // store cmd list
+;  __asm__ volatile ("lda #%b", SP_CMD_CONTROL);
+;  __asm__ volatile ("sta %g", spCmd); // store status command #
+;  __asm__ volatile ("lda %v", sp_cmdlist_low);
+;  __asm__ volatile ("sta %g", spCmdListLow); // store status command #
+;  __asm__ volatile ("lda %v", sp_cmdlist_high);
+;  __asm__ volatile ("sta %g", spCmdListHigh); // store status command #
+  
+;  __asm__ volatile ("jsr $C50D"); // to do - find entry point and used it instead of hardcoded address
+;spCmd:
+;  __asm__ volatile ("nop");
+;spCmdListLow:
+;  __asm__ volatile ("nop");
+;spCmdListHigh:
+;  __asm__ volatile ("nop");
+;  __asm__ volatile ("sta %v", sp_err);
+;  sp_error = sp_err;
+;  return sp_err;
+;}
 SP_CONTROL:
-
+                STY CMD_LIST+4
                 LDA #SP_CONTROL_PARAM_COUNT        ; 3
                 STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
                 STX CMD_LIST_DEST               ; DESTINATION DEVICE
@@ -373,7 +405,7 @@ SP_CTRL_DONE:
 ;command.
 ;address pointer: This parameter contains the block address of the target block.
 
-
+.IF USE_SP
 SP_STATUS:
                 LDA #SP_STATUS_PARAM_COUNT
                 STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
@@ -403,6 +435,7 @@ SP_STATUS_DONE:
 
                 RTS
 
+.ENDIF
 ;*******************************
 ; CALL_DISPATCHER
 ;   Call this routine as a JSR
@@ -592,7 +625,9 @@ PPAYLOAD:
 
                 RTS
 
+
 ;***************************************************************
+.IF USE_SP
 SP_FIND_DEVICE:
                 STA ZP1_LO
                 STY ZP1_HI
@@ -679,50 +714,8 @@ FOUND_DEVICE:
                 TAX
 FOUND_DONE:              
                 RTS
+.ENDIF
 
 
-;void connect(void)
-;{
-;  sp_open(net);
-;  sp_payload[0]=0x02; // 258 bytes
-;  sp_payload[1]=0x01;
-;  sp_payload[2]=0x0C; // READ/WRITE (or GET)
-;  sp_payload[3]=0x80; // NO TRANSLATION
-;  memcpy(&sp_payload[4],url,256)
-;  sp_control(net,'O'); // Do the open.  ;
-;}
-
-;bool isConnected(void)
-;{
-;  sp_status(net,'S');
-;  return sp_payload[2] & 0x02; // Bit 2 = Connected?
-;}
-
-
-; X = DEVICE
-FN_IS_CONNECTED:
-        LDY #'S'
-        JSR SP_STATUS
-        LDA PAYLOAD+2
-        AND #$02
-        ROR
-        RTS
-
-; X = DEVICE 
-FN_BYTES_WAITING:
-        LDY #'S'
-        JSR SP_STATUS
-        LDA SP_PAYLOAD
-        LDY SP_PAYLOAD+1
-        RTS
-
-        
-; X=DEVICE
-FIND_NETWORK:
-                LDA #<NETWORK_STR
-                LDY #>NETWORK_STR
-                JSR SP_FIND_DEVICE
-
-                RTS
 
 
