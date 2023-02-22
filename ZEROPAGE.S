@@ -52,4 +52,24 @@ ZP4_HI		=	$A9
 
 ZP5		    =	$AA
 .ENDIF
+
+.MACRO SAVE_REGS
+        PHP
+        PHA
+        TXA
+        PHA
+        TYA
+        PHA
+.ENDMACRO
+
+.MACRO RESTORE_REGS
+        PLA
+        TAY
+        PLA
+        TAX
+        PLA
+        PLP
+.ENDMACRO
+
+
 .ENDIF

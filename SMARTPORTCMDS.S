@@ -90,6 +90,22 @@ SLOT_ADDR		=	ZP2
 SLOT_ADDR_LO	    	=	ZP2_LO
 SLOT_ADDR_HI		=	ZP2_HI
 
+.IF USE_TRACE
+
+FIND_SMARTPORT_SLOT_STR: .BYTE "FIND_SMARTPORT_SLOT", $0D, $00
+GET_SMARTPORT_DISPATCH_ADDRESS_STR: .BYTE "GET_SMARTPORT_DISPATCH_ADDRESS", $0D, $00
+SP_OPEN_STR:             .BYTE "SP_OPEN",    $0D, $00
+SP_CLOSE_STR:            .BYTE "SP_CLOSE",   $0D, $00
+SP_CONTROL_STR:          .BYTE "SP_CONTROL", $0D, $00
+SP_STATUS_STR:           .BYTE "SP_STATUS",  $0D, $00
+CALL_DISPATCHER_STR:     .BYTE "CALL_DISPATCHER",   $0D, $00
+DISPLAY_SP_STATUS_STR:   .BYTE "DISPLAY_SP_STATUS", $0D, $00
+SP_FIND_DEVICE_STR:      .BYTE "SP_FIND_DEVICE",    $0D, $00
+
+.ENDIF
+
+
+.IF USE_SP
 
 ;*******************************
 ; FIND_SMARTPORT_SLOT
@@ -100,9 +116,15 @@ SLOT_ADDR_HI		=	ZP2_HI
 ;   A = $FF - NO SMARTPORT FOUND
 ;   A = $CX - WHERE X IS THE SLOT
 ;**********************************
-
-.IF USE_SP
 FIND_SMARTPORT_SLOT:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<FIND_SMARTPORT_SLOT_STR
+                LDY #>FIND_SMARTPORT_SLOT_STR
+                JSR STROUT
+                RESTORE_REGS
+.ENDIF
 
                 LDA     #$C7            ; START AT SLOT 7 ($C700)
                 STA     SLOT_ADDR_HI
@@ -144,6 +166,11 @@ NOT_FOUND:
         
 SMARTPORT_ID:   .BYTE $20, $00, $03, $00 
 .ENDIF
+
+
+
+.IF USE_SP
+
 ;*******************************
 ; GET_SMARTPORT_DISPATCH_ADDRESS
 ; INPUT:
@@ -155,8 +182,16 @@ SMARTPORT_ID:   .BYTE $20, $00, $03, $00
 ; OR A AND X WILL BE SET TO $FF
 ; IF DISPATCHER NOT FOUND
 ;**********************************
-.IF USE_SP
 GET_SMARTPORT_DISPATCH_ADDRESS:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<GET_SMARTPORT_DISPATCH_ADDRESS_STR
+                LDY #>GET_SMARTPORT_DISPATCH_ADDRESS_STR
+                JSR STROUT
+                RESTORE_REGS
+.ENDIF
+
                 JSR FIND_SMARTPORT_SLOT 
                 CMP #$FF                ; IF A == $FF THEN NOT FOUND
                 BEQ NO_DISPATCHER
@@ -207,8 +242,21 @@ DONE:
 ; Byte Definition
 ; 0     parameter list length ($03)
 ; 1     unit number
-
+;******************************************************************
 SP_OPEN:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<SP_OPEN_STR
+                LDY #>SP_OPEN_STR
+                JSR STROUT
+                JSR CROUT
+
+                JSR PRINT_PAYLOAD
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
+
                 LDA #SP_OPEN_PARAM_COUNT        ; 3
                 STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
                 STX CMD_LIST_DEST               ; DESTINATION DEVICE
@@ -242,8 +290,18 @@ SP_OPEN_DONE:
 ; Byte Definition
 ; 0     parameter list length ($03)
 ; 1     unit number
-
+;******************************************************************
 SP_CLOSE:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<SP_CLOSE_STR
+                LDY #>SP_CLOSE_STR
+                JSR STROUT
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
+
                 LDA #SP_CLOSE_PARAM_COUNT       ; 3
                 STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
                 STX CMD_LIST_DEST               ; DESTINATION DEVICE
@@ -260,6 +318,7 @@ CLOSE_ERROR:
                 LDA #<SP_ERROR
                 LDY #>SP_ERROR
                 JSR STROUT
+                JSR CROUT
                 PLA
                 TAX
                 JSR PRTX
@@ -294,7 +353,7 @@ SP_CLOSE_DONE:
 ;2-3    pointer (lsb--msb)
 ;4      control code
 ;5      transfer count
-
+;******************************************************************
 ;int8_t sp_control(uint8_t dest, uint8_t ctrlcode)
 ;{
 ;  sp_error = 0;
@@ -328,6 +387,15 @@ SP_CLOSE_DONE:
 ;  return sp_err;
 ;}
 SP_CONTROL:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<SP_CONTROL_STR
+                LDY #>SP_CONTROL_STR
+                JSR STROUT
+                RESTORE_REGS
+.ENDIF
+
                 STY CMD_LIST+4
                 LDA #SP_CONTROL_PARAM_COUNT        ; 3
                 STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
@@ -406,7 +474,19 @@ SP_CTRL_DONE:
 ;address pointer: This parameter contains the block address of the target block.
 
 .IF USE_SP
+
+;******************************************************************
+;******************************************************************
 SP_STATUS:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<SP_STATUS_STR
+                LDY #>SP_STATUS_STR
+                JSR STROUT
+                RESTORE_REGS
+.ENDIF
+
                 LDA #SP_STATUS_PARAM_COUNT
                 STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
                 STX CMD_LIST_DEST               ; DESTINATION DEVICE
@@ -436,6 +516,7 @@ SP_STATUS_DONE:
                 RTS
 
 .ENDIF
+
 ;*******************************
 ; CALL_DISPATCHER
 ;   Call this routine as a JSR
@@ -445,9 +526,16 @@ SP_STATUS_DONE:
 ; into your code
 ; BYTE - Command Number
 ; WORD - Address for return values
-;
 ;**********************************
 CALL_DISPATCHER:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<CALL_DISPATCHER_STR
+                LDY #>CALL_DISPATCHER_STR
+                JSR STROUT
+                RESTORE_REGS
+.ENDIF
                 JMP (SMARTPORT_DISPATCHER)
 
 
@@ -465,8 +553,15 @@ SP_SUCCESS:             .ASCIIZ "SMARTPORT SUCCESS:  "
 ;   Displays the device count,
 ; vender id, and version number
 ;**********************************
-
 DISPLAY_SP_STATUS:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<DISPLAY_SP_STATUS_STR
+                LDY #>DISPLAY_SP_STATUS_STR
+                JSR STROUT
+                RESTORE_REGS
+.ENDIF
 
                 LDX #$00                ; SMARTPORT DEVICE ZERO
                 LDY #$00
@@ -498,11 +593,18 @@ DISPLAY_SP_STATUS:
 
                 RTS
 
+
+
 DEV_LIST_STR:   .ASCIIZ " SMARTPORT DEVICE LIST "
 UNIT_STR:       .ASCIIZ "UNIT #"
 NAME_STR:       .ASCIIZ " NAME: "
 
 NUM_DEVICES:    .BYTE $00
+
+;*******************************
+; ISTROUT
+;   Display string in inverse
+;**********************************
 
 ISTROUT:
                 STA ZP1_LO
@@ -521,7 +623,13 @@ PRINTI:
 PRINTI_STOP:
                 RTS
 
+;*******************************
+; DISPLAY_SP_DEVICES
+;   Display all the devices on
+; the smartport
+;**********************************
 DISPLAY_SP_DEVICES:
+
                 LDA #<DEV_LIST_STR
                 LDY #>DEV_LIST_STR
                 JSR ISTROUT
@@ -572,6 +680,7 @@ NEXT_DEV:
                 CPX NUM_DEVICES
                 BNE NEXT_DEV
                 RTS
+
 DISPLAY_ERROR_OUT:
                 JSR PRTX
 
@@ -592,6 +701,31 @@ FIND_DEVICE_STR:        .RES 255
 FIND_DEVICE_STR_LEN:    .BYTE 0
 
 ;*******************************
+; PRINT_PAYLOAD
+;   Display the ASCII contents
+; of the payload buffer
+;**********************************
+PRINT_PAYLOAD:
+                SAVE_REGS
+
+                LDX #$00
+PPAYLOAD:   
+                LDA SP_PAYLOAD+5,X      ; STRING
+                ORA #$80
+                JSR COUT
+                INX
+                CPX SP_PAYLOAD+4
+                BNE PPAYLOAD
+
+                RESTORE_REGS
+
+                RTS
+
+
+;***************************************************************
+.IF USE_SP
+
+;*******************************
 ; SP_FIND_DEVICE
 ;   Looks for the specified smartport device
 ; INPUT
@@ -602,33 +736,17 @@ FIND_DEVICE_STR_LEN:    .BYTE 0
 ;   Y = Low byte address of string
 ;   X = Device number or $FF on failure
 ;*********************************
-PRINT_PAYLOAD:
-                PHA
-                TXA
-                PHA
-                TYA
-                PHA
-                LDX #$00
-PPAYLOAD:   
-                LDA SP_PAYLOAD+5,X      ; STRING
-                ORA #$80
-                JSR COUT
-                INX
-                CPX SP_PAYLOAD+4
-                BNE PPAYLOAD
 
-                PLA
-                TAY
-                PLA
-                TAX
-                PLA
-
-                RTS
-
-
-;***************************************************************
-.IF USE_SP
 SP_FIND_DEVICE:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<SP_FIND_DEVICE_STR
+                LDY #>SP_FIND_DEVICE_STR
+                JSR STROUT
+                RESTORE_REGS
+.ENDIF
+
                 STA ZP1_LO
                 STY ZP1_HI
                 
@@ -646,10 +764,14 @@ LOOK_FOR_NULL:
 GOT_LENGTH:     
                 STX FIND_DEVICE_STR_LEN         ; LENGTH INCLUDES NULL
 
+.IF USE_TRACE
+                SAVE_REGS
                 LDA #<FIND_DEVICE_STR
                 LDY #>FIND_DEVICE_STR
-                JSR STROUT
                 JSR CROUT
+                RESTORE_REGS
+
+.ENDIF
 
                 LDX #$00
                 LDY #$00

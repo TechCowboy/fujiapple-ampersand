@@ -24,10 +24,10 @@ GOT_LENGTH3:
 
 
 FIND_SMARTPORT_SLOT:
-
                 LDA #$C5                ; FAKE SMARTPORT FOR TESTING $C500
                 LDA SLOT_ADDR_HI
                 RTS                     ; WE FOUND IT! A = SLOT ADDRESS
+
 
 GET_SMARTPORT_DISPATCH_ADDRESS:
                 ; FAKE SMARTPORT DISPATCHER
@@ -39,6 +39,15 @@ GET_SMARTPORT_DISPATCH_ADDRESS:
                 RTS
 
 SP_STATUS:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<SP_STATUS_STR
+                LDY #>SP_STATUS_STR
+                JSR STROUT
+                RESTORE_REGS
+.ENDIF
+
                 LDA #SP_STATUS_PARAM_COUNT
                 STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
                 STX CMD_LIST_DEST               ; DESTINATION DEVICE
@@ -130,6 +139,14 @@ FAKE_DEV:      .RES 255
 FAKE_DEV_LEN:   .BYTE 0
 
 SP_FIND_DEVICE:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<SP_FIND_DEVICE_STR
+                LDY #>SP_FIND_DEVICE_STR
+                JSR STROUT
+                RESTORE_REGS
+.ENDIF
 
                 STA ZP1_LO
                 STY ZP1_HI

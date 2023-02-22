@@ -17,6 +17,16 @@
 
 ; X = DEVICE
 
+.IF USE_TRACE
+
+FIND_NETWORK_STR:    .BYTE "FIND_NETWORK"    , $0D, $00
+FN_BYTES_WAITING_STR:.BYTE "FN_BYTES_WAITING", $0D, $00
+FN_IS_CONNECTED_STR: .BYTE "FN_IS_CONNECTED" , $0D, $00
+FN_OPEN_STR:         .BYTE "FN_OPEN"         , $0D, $00
+
+.ENDIF
+
+
 CPY_URL_TO_PAYLOAD:
                 LDA #<URL
                 LDY #>URL
@@ -53,28 +63,56 @@ GOT_LENGTH2:
 ;  sp_control(net,'O'); // Do the open.  ;
 ;}
 FN_OPEN:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<FN_OPEN_STR
+                LDY #>FN_OPEN_STR
+                JSR STROUT
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
+
                 TXA
                 PHA
                 JSR SP_OPEN
-                LDY #$02
+                
+                LDY #$02                ; PAYLOAD SIZE = $102 = 258 BYTES
                 STY PAYLOAD
                 DEY
                 STY PAYLOAD+1
-                LDA #$0C
+                
+                LDA #$0C                ; ??
                 STA PAYLOAD+2
-                LDA TRANSLATION
+                
+                LDA TRANSLATION         ; CHARACTER TRANSLATION
                 STA PAYLOAD+3
 
-                JSR CPY_URL_TO_PAYLOAD
-
-                PLA
+                JSR CPY_URL_TO_PAYLOAD  ; TRANSFER THE URL
+.IF USE_TRACE
+                JSR PRINT_PAYLOAD       ; PRINT THE URL
+                JSR CROUT
+.ENDIF
+                PLA                     ; GET BACK OUR DEVICE NUMBER
                 TAX
-                LDY #'O'
+                LDY #'O'                ; SEND 'O' TO FUJINET
                 JSR SP_CONTROL
+
+                RTS
 
 
 ; X = DEVICE
 FN_IS_CONNECTED:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<FN_IS_CONNECTED_STR
+                LDY #>FN_IS_CONNECTED_STR
+                JSR STROUT
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
+
                 LDY #'S'
                 JSR SP_STATUS
                 LDA PAYLOAD+2
@@ -84,6 +122,16 @@ FN_IS_CONNECTED:
 
 ; X = DEVICE 
 FN_BYTES_WAITING:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<FN_BYTES_WAITING_STR
+                LDY #>FN_BYTES_WAITING_STR
+                JSR STROUT
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
+
                 LDY #'S'
                 JSR SP_STATUS
                 LDA SP_PAYLOAD
@@ -92,6 +140,16 @@ FN_BYTES_WAITING:
         
 ; X=DEVICE
 FIND_NETWORK:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<FIND_NETWORK_STR
+                LDY #>FIND_NETWORK_STR
+                JSR STROUT
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
+
                 LDA #<NETWORK_STR
                 LDY #>NETWORK_STR
                 JSR SP_FIND_DEVICE

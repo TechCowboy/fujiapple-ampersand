@@ -24,10 +24,10 @@
 ;    ]
 ;}
 
-USE_TRACE  = 1
-RELOCATE   = 0
-PRODOS     = 1
-APPLEII    = 1
+USE_TRACE  = 1  ; 1=display debug messages
+RELOCATE   = 0  ; 1=relocate himem and put our code there
+PRODOS     = 1  ; 0=add dos 3.3 header
+APPLEII    = 1  ; always set to one, EQUs will be for apple zero page
 USE_SP     = 0  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
 
 START      = $4000
@@ -92,7 +92,7 @@ NINIT:
 FOUND_SMARTPORT:
 
 .IF USE_TRACE
-                JSR DISPLAY_SP_STATUS                   ; SHOW THE ID AND VERSION
+;                JSR DISPLAY_SP_STATUS                   ; SHOW THE ID AND VERSION
 ;                JSR DISPLAY_SP_DEVICES                  ; SHOW ALL THE DEVICES
 
 ;                LDA #<FUJI_DISK_0_STR
@@ -341,7 +341,20 @@ NOPEN:
 
 ; &NOPEN UNIT,MODE,TRANS,URL$
 ; &NOPEN UNIT,MODE,TRANS,"URL"
+;
 ; Opens a specified URL for use.
+;
+; UNIT = 0-4 NETWORK
+; MODE = 4-READ ONLY
+;        6-READ DIRECTORY
+;        8-WRITE ONLY
+;        12-READ AND WRITE
+;        13-HTTP POST
+; TRANS= 0-NO TRANSLATION
+;        1-CR TO ATASCII
+;        2-LF TO ATASCII EOL
+;        3-CR/LF TO ATASCII EOL
+
 
 .IF USE_TRACE
                 LDA #<NOPEN_STR ; "NOPEN"
@@ -356,7 +369,7 @@ NOPEN:
                 CPX #$04       
                 BMI UNIT_OK1    ; OUT OF RANGE?
 
-                LDX #ILLEGAL_QUANTITY_ERROR
+                LDX #ILLEGAL_QUANTITY_ERROR     ; MUST BE BETWEEN 0 AND 3
                 JMP APPLESOFT_ERROR
 
                 
@@ -412,11 +425,7 @@ STORING:
                 LDA #0         ; NULL TERMINATE STRING
                 STA URL,Y
 
-;****** TO DO ******
-; UNIT, MODE, TRANS AND URL HAVE BEEN FILLED
-; CALL APPROPRIATE FUJINET ROUTINE
-; TO OPEN
-;******************
+                JSR FN_OPEN
 
                 RTS
 ;*********************************************
@@ -556,6 +565,8 @@ COPYBUF:
 ;**********************
 
                 RTS
+
+ ;*****************************************************               
 NCTRL:
 ; &NCTRL UNIT,COMMAND, PAYLOAD$
 ; Sends a specific control message to the network device 
@@ -615,8 +626,8 @@ UNIT_OK4:
 ; CALL FUJINET
 ;*******************
                 RTS
-;*******************************************
 
+;*******************************************
 NSTATUS:
 ; &NSTATUS UNIT,BW,CONNECTED,NERR
 ; To get the status of network unit. BW = bytes waiting, 
@@ -721,6 +732,7 @@ NO_RESTORE:
 
 .ENDIF
 
+;*****************************************************
 RESTORE_VECT:
 
                 LDA PREVECT
@@ -768,10 +780,10 @@ RELOCATE_CODE_END:
 
 ;*********************
 FUJIAPPLE_VER_STR:
-                .ASCIIZ "FUJIAPPLE VERSION: 20220223.1810"
+                .ASCIIZ "FUJIAPPLE VERSION: 20220222.1900"
 
 ADJUST_HIMEM_STR:
-                .BYTE $0D, "ADJUSTING HIMEM TO: ", $00
+                .BYTE $0D, "ADJUSTING HIMEM TO: ", $00 
 
 RELOCATING:
                 .BYTE $0D, "RELOCATING TO HIMEM...", $00
@@ -881,8 +893,9 @@ RELOCATION_TABLE:
 ;		.WORD 	relocate010+1,relocate011+1,relocate012+1,relocate013+1,relocate014+1,relocate015+1,relocate016+1,relocate017+1,relocate018+1,relocate019+1
 ;		.WORD   relocate020+1,relocate021+1,relocate022+1
 
-END_RELOCATION_TABLE:	.WORD 	0 ; end of table
-			.RES	1024
+END_RELOCATION_TABLE:	
+                .WORD 	0 ; end of table
+		.RES	1024
 
 ; We should generate an error if there are too many entries (greater than 255)
 
