@@ -93,12 +93,38 @@ FN_OPEN:
 
                 JSR CPY_URL_TO_PAYLOAD  ; TRANSFER THE URL
 .IF USE_TRACE
-                JSR PRINT_SP_PAYLOAD       ; PRINT THE URL
+                JSR PRINT_SP_PAYLOAD    ; PRINT THE URL
                 JSR CROUT
 .ENDIF
                 PLA                     ; GET BACK OUR DEVICE NUMBER
                 TAX
                 LDY #'O'                ; SEND 'O' TO FUJINET
+                JSR SP_CONTROL
+
+                RTS
+
+
+FN_CLOSE:
+
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<FN_CLOSE_STR
+                LDY #>FN_CLOSE_STR
+                JSR STROUT
+                RESTORE_REGS
+.ENDIF
+
+                TXA
+                PHA
+                JSR SP_CLOSE
+                
+                LDY #$00                ; PAYLOAD SIZE = $102 = 258 BYTES
+                STY PAYLOAD
+                STY PAYLOAD+1
+                
+                PLA                     ; GET BACK OUR DEVICE NUMBER
+                TAX
+                LDY #'C'                ; SEND 'C' TO FUJINET
                 JSR SP_CONTROL
 
                 RTS

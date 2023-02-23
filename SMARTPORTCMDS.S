@@ -334,27 +334,17 @@ SP_CLOSE_DONE:
 ;******************************************************************
 ; SP_CONTROL
 ;The Control command provides two basic functions. The first is to execute device
-;control routines designed by Apple. The second is to execute SCSI commands. The
-;command interpreter handles all of the functions required to execute the routine or
-;command, including the routines necessary to read your routine or command out
-;of RAM and pass it to the device, and receive any data returned by the command
-;and write it into the RAM address you have specified (where appropriate).
-;If you need to use a SCSI command not supported by a SmartPort control code, you
-;must write some special code in order to pass your command to the interpreter. See
-;Appendix B for details on using unsupported SCSI commands with the command
-;interpreter.
-;If there is a particular unsupported call that you use frequently, it is possible to
-;patch it into the SCSI card RAM. This allows the command to be treated by the
-;command interpreter just as if it were a supported command. To do this, use
-;PatchlCall ($1E).
+;control routines designed by Apple. The second is to execute Fujinet commands. 
 ;Although each control code has its own parameter list, the following generic list
 ;shows the basic format they all adhere to.
+
 ;Byte   Definition
-;0      parameter list length ($03 or $04)
-;1      unit number
-;2-3    pointer (lsb--msb)
-;4      control code
-;5      transfer count
+; 'O'
+;0-1    payload size
+;2      ??
+;3      translation
+;4      left of string
+;5...   string
 ; INPUT
 ;  X = UNIT
 ;  Y = CONTROL CODE
