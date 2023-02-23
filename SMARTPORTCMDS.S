@@ -101,7 +101,7 @@ SP_STATUS_STR:           .BYTE "SP_STATUS",  $0D, $00
 CALL_DISPATCHER_STR:     .BYTE "CALL_DISPATCHER",   $0D, $00
 DISPLAY_SP_STATUS_STR:   .BYTE "DISPLAY_SP_STATUS", $0D, $00
 SP_FIND_DEVICE_STR:      .BYTE "SP_FIND_DEVICE",    $0D, $00
-
+REAL:                    .BYTE "REAL SMARTPORT", $0D, $00
 .ENDIF
 
 
@@ -120,6 +120,9 @@ FIND_SMARTPORT_SLOT:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA #<REAL
+                LDY #>REAL
+                JSR STROUT
                 LDA #<FIND_SMARTPORT_SLOT_STR
                 LDY #>FIND_SMARTPORT_SLOT_STR
                 JSR STROUT
@@ -221,13 +224,17 @@ GET_SMARTPORT_DISPATCH_ADDRESS:
 
                 LDA DISPATCHER_ADDR_HI  ; PUT ADDRESS IN A AND X
                 LDX DISPATCHER_ADDR_LO
+
                 CLC
                 BCC DONE
 
 NO_DISPATCHER:
                 LDA #$FF                ; NO ADDRESS FOUND
                 LDX #$FF
+                STA DISPATCHER_ADDR_HI  ; PUT ADDRESS IN A AND X
+                STX DISPATCHER_ADDR_LO
 DONE:        
+
                 RTS
 .ENDIF
 

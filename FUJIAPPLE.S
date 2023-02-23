@@ -28,7 +28,7 @@ USE_TRACE  = 1  ; 1=display debug messages
 RELOCATE   = 0  ; 1=relocate himem and put our code there
 PRODOS     = 1  ; 0=add dos 3.3 header
 APPLEII    = 1  ; always set to one, EQUs will be for apple zero page
-USE_SP     = 0  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
+USE_SP     = 1  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
 
 START      = $4000
 
@@ -80,7 +80,7 @@ NINIT:
 
                 JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
 
-                LDA SMARTPORT_DISPATCHER+1
+                LDA DISPATCHER_ADDR_HI
                 CMP #$FF                                ; WAS THE CARD FOUND?
                 BNE FOUND_SMARTPORT
 
@@ -180,7 +180,17 @@ SAVEVECT:
 
 
 RELOCATE_CODE_START:
-
+;****************************************
+; THIS IS USED TO DETERMINE IF THE
+; EXTENSIONS HAVE ALREADY BEEN INSTALLED
+; X = PEEK(1016)+PEEK(1017*256)
+; X = X - 1
+; C = PEEK(X)
+; X = X - C
+; FOR Y = 0 TO C: PRINT CHR$(PEEK(X);:X=X+1:NEXT Y
+;****************************************
+                .ASCIIZ "FUJIAMP"
+                .BYTE 7
 ;****************************************
 ; NSTART - FUJINET EXTENSION START
 ;   THIS IS THE ENTRY POINT OF THE AMPERSAND ROUTINE
@@ -786,7 +796,7 @@ RELOCATE_CODE_END:
 
 ;*********************
 FUJIAPPLE_VER_STR:
-                .ASCIIZ "FUJIAPPLE VERSION: 20220222.2100"
+                .ASCIIZ "FUJIAPPLE VERSION: YYYYMMDD.HHMM"
 
 ADJUST_HIMEM_STR:
                 .BYTE $0D, "ADJUSTING HIMEM TO: ", $00 
@@ -855,7 +865,7 @@ RELOC_SIZE:     .BYTE   $0D
 DISPATCH_ADDRESS_STR: 
                 .ASCIIZ "DISPATCHER ADDRESS: "
 .ENDIF
-SP_NOT_FOUND:   .ASCIIZ "SMARTPORT NOT FOUND!"
+SP_NOT_FOUND:   .BYTE   "SMARTPORT NOT FOUND! EXTENSIONS NOT LOADED", $0D, $00
 NOT_OPENED:     .ASCIIZ "UNIT NOT OPENED!"
 
 PREVECT:        .RES 3                  ; JUMP TO CONTENTS OF THE PREVIOUS AMPERSAND VECTOR

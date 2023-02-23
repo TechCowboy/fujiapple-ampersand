@@ -35,8 +35,10 @@ FIND_NETWORK_STR:    .BYTE "FIND_NETWORK"    , $0D, $00
 FN_BYTES_WAITING_STR:.BYTE "FN_BYTES_WAITING", $0D, $00
 FN_IS_CONNECTED_STR: .BYTE "FN_IS_CONNECTED" , $0D, $00
 FN_OPEN_STR:         .BYTE "FN_OPEN"         , $0D, $00
+FN_CLOSE_STR:        .BYTE "FN_CLOSE"        , $0D, $00
 CPY_URL_TO_PLAYLOAD_STR: .BYTE "CPY_URL_TO_PAYLOAD", $0D, $00
 URL_STR:             .ASCIIZ "URL: "
+
 .ENDIF
 
 
@@ -82,7 +84,12 @@ FN_OPEN:
                 TXA
                 PHA
                 JSR SP_OPEN
-                
+
+;  uint8_t get_status_code(iwm_decoded_cmd_t cmd) {return cmd.params[2];}
+;  uint16_t get_numbytes(iwm_decoded_cmd_t cmd) { return cmd.params[2] + (cmd.params[3] << 8); };
+;  uint32_t get_address(iwm_decoded_cmd_t cmd) { return cmd.params[4] + (cmd.params[5] << 8) + (cmd.params[6] << 16); }
+
+
                 LDY #$02                ; PAYLOAD SIZE = $102 = 258 BYTES
                 STY PAYLOAD
                 DEY

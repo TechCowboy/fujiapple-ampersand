@@ -2,6 +2,7 @@
     ; DON'T USE THIS CODE
 .ELSE
 
+FAKE:   .BYTE "**** FAKE SMARTPORT ****", $0D, $00
 
 CPY_STR_TO_SP_PAYLOAD:
                 STA ZP1_LO
@@ -32,6 +33,11 @@ GOT_LENGTH3:
 ;   A = $CX - WHERE X IS THE SLOT
 ;**********************************
 FIND_SMARTPORT_SLOT:
+                LDA #<FAKE
+                LDY #>FAKE
+                JSR STROUT
+                LDY #>FIND_SMARTPORT_SLOT_STR
+                JSR STROUT
                 LDA #$C5                ; FAKE SMARTPORT FOR TESTING $C500
                 LDA SLOT_ADDR_HI
                 RTS                     ; WE FOUND IT! A = SLOT ADDRESS
