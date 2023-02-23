@@ -23,11 +23,13 @@ FIND_NETWORK_STR:    .BYTE "FIND_NETWORK"    , $0D, $00
 FN_BYTES_WAITING_STR:.BYTE "FN_BYTES_WAITING", $0D, $00
 FN_IS_CONNECTED_STR: .BYTE "FN_IS_CONNECTED" , $0D, $00
 FN_OPEN_STR:         .BYTE "FN_OPEN"         , $0D, $00
-
+CPY_URL_TO_PLAYLOAD_STR: .BYTE "CPY_URL_TO_PAYLOAD", $0D, $00
+URL_STR:             .ASCIIZ "URL: "
 .ENDIF
 
 
 CPY_URL_TO_PAYLOAD:
+
                 LDA #<URL
                 LDY #>URL
                 
@@ -39,7 +41,7 @@ CPY_STR_TO_PAYLOAD:
                 LDY #$00
 LOOK_FOR_NULL2:
                 LDA (ZP1),Y
-                STA PAYLOAD+4,X 
+                STA SP_PAYLOAD+5,X 
                 BEQ GOT_LENGTH2
                 INY
                 INX
@@ -47,8 +49,10 @@ LOOK_FOR_NULL2:
                 BCC LOOK_FOR_NULL2
 
 GOT_LENGTH2:
-            
-                ; STX URL_LEN         ; X = LENGTH INCLUDES NULL
+                INX
+                STX SP_PAYLOAD+4
+                LDA #$00
+                STA SP_PAYLOAD+5,X
 
                 RTS
 
@@ -69,7 +73,6 @@ FN_OPEN:
                 LDA #<FN_OPEN_STR
                 LDY #>FN_OPEN_STR
                 JSR STROUT
-                JSR CROUT
                 RESTORE_REGS
 .ENDIF
 
@@ -90,7 +93,7 @@ FN_OPEN:
 
                 JSR CPY_URL_TO_PAYLOAD  ; TRANSFER THE URL
 .IF USE_TRACE
-                JSR PRINT_PAYLOAD       ; PRINT THE URL
+                JSR PRINT_SP_PAYLOAD       ; PRINT THE URL
                 JSR CROUT
 .ENDIF
                 PLA                     ; GET BACK OUR DEVICE NUMBER
@@ -109,7 +112,6 @@ FN_IS_CONNECTED:
                 LDA #<FN_IS_CONNECTED_STR
                 LDY #>FN_IS_CONNECTED_STR
                 JSR STROUT
-                JSR CROUT
                 RESTORE_REGS
 .ENDIF
 
@@ -128,7 +130,6 @@ FN_BYTES_WAITING:
                 LDA #<FN_BYTES_WAITING_STR
                 LDY #>FN_BYTES_WAITING_STR
                 JSR STROUT
-                JSR CROUT
                 RESTORE_REGS
 .ENDIF
 
@@ -146,7 +147,6 @@ FIND_NETWORK:
                 LDA #<FIND_NETWORK_STR
                 LDY #>FIND_NETWORK_STR
                 JSR STROUT
-                JSR CROUT
                 RESTORE_REGS
 .ENDIF
 

@@ -96,7 +96,7 @@ FIND_SMARTPORT_SLOT_STR: .BYTE "FIND_SMARTPORT_SLOT", $0D, $00
 GET_SMARTPORT_DISPATCH_ADDRESS_STR: .BYTE "GET_SMARTPORT_DISPATCH_ADDRESS", $0D, $00
 SP_OPEN_STR:             .BYTE "SP_OPEN",    $0D, $00
 SP_CLOSE_STR:            .BYTE "SP_CLOSE",   $0D, $00
-SP_CONTROL_STR:          .BYTE "SP_CONTROL", $0D, $00
+SP_CONTROL_STR:          .BYTE "SP_CONTROL", $00
 SP_STATUS_STR:           .BYTE "SP_STATUS",  $0D, $00
 CALL_DISPATCHER_STR:     .BYTE "CALL_DISPATCHER",   $0D, $00
 DISPLAY_SP_STATUS_STR:   .BYTE "DISPLAY_SP_STATUS", $0D, $00
@@ -241,7 +241,9 @@ DONE:
 ; follows:
 ; Byte Definition
 ; 0     parameter list length ($03)
-; 1     unit number
+; 1     unit number 
+; INPUT
+; X = UNIT DESTINATION
 ;******************************************************************
 SP_OPEN:
 
@@ -250,9 +252,8 @@ SP_OPEN:
                 LDA #<SP_OPEN_STR
                 LDY #>SP_OPEN_STR
                 JSR STROUT
-                JSR CROUT
 
-                JSR PRINT_PAYLOAD
+                JSR PRINT_SP_PAYLOAD
                 JSR CROUT
                 RESTORE_REGS
 .ENDIF
@@ -290,6 +291,8 @@ SP_OPEN_DONE:
 ; Byte Definition
 ; 0     parameter list length ($03)
 ; 1     unit number
+; INPUT
+; X = UNIT DESTINATION
 ;******************************************************************
 SP_CLOSE:
 
@@ -298,7 +301,6 @@ SP_CLOSE:
                 LDA #<SP_CLOSE_STR
                 LDY #>SP_CLOSE_STR
                 JSR STROUT
-                JSR CROUT
                 RESTORE_REGS
 .ENDIF
 
@@ -353,51 +355,33 @@ SP_CLOSE_DONE:
 ;2-3    pointer (lsb--msb)
 ;4      control code
 ;5      transfer count
+; INPUT
+;  X = UNIT
+;  Y = CONTROL CODE
 ;******************************************************************
-;int8_t sp_control(uint8_t dest, uint8_t ctrlcode)
-;{
-;  sp_error = 0;
-;  // build the command list
-;  sp_cmdlist[0] = SP_CONTROL_PARAM_COUNT; 
-;  sp_cmdlist[1] = dest; // set before calling sp_status();
-;  sp_cmdlist[2] = (uint8_t)((uint16_t)&sp_payload & 0x00FF);
-;  sp_cmdlist[3] = (uint8_t)((uint16_t)&sp_payload >> 8) & 0xFF;
-;  sp_cmdlist[4] = ctrlcode;
-;
-;  sp_cmdlist_low = (uint8_t)((uint16_t)&sp_cmdlist & 0x00FF);
-;  sp_cmdlist_high = (uint8_t)((uint16_t)&sp_cmdlist >> 8) & 0xFF;;
-;
- ; // store cmd list
-;  __asm__ volatile ("lda #%b", SP_CMD_CONTROL);
-;  __asm__ volatile ("sta %g", spCmd); // store status command #
-;  __asm__ volatile ("lda %v", sp_cmdlist_low);
-;  __asm__ volatile ("sta %g", spCmdListLow); // store status command #
-;  __asm__ volatile ("lda %v", sp_cmdlist_high);
-;  __asm__ volatile ("sta %g", spCmdListHigh); // store status command #
-  
-;  __asm__ volatile ("jsr $C50D"); // to do - find entry point and used it instead of hardcoded address
-;spCmd:
-;  __asm__ volatile ("nop");
-;spCmdListLow:
-;  __asm__ volatile ("nop");
-;spCmdListHigh:
-;  __asm__ volatile ("nop");
-;  __asm__ volatile ("sta %v", sp_err);
-;  sp_error = sp_err;
-;  return sp_err;
-;}
 SP_CONTROL:
+                STY CMD_LIST+4
 
 .IF USE_TRACE
                 SAVE_REGS
+                
                 LDA #<SP_CONTROL_STR
                 LDY #>SP_CONTROL_STR
                 JSR STROUT
+
+                LDA #'['
+                JSR COUT
+                LDA CMD_LIST+4
+                JSR COUT
+                LDA #']'
+                JSR COUT
+                LDX CMD_LIST+4
+                JSR PRTX
+                JSR CROUT
                 RESTORE_REGS
 .ENDIF
 
-                STY CMD_LIST+4
-                LDA #SP_CONTROL_PARAM_COUNT        ; 3
+                LDA #SP_CONTROL_PARAM_COUNT     ; 3
                 STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
                 STX CMD_LIST_DEST               ; DESTINATION DEVICE
                 JSR CALL_DISPATCHER
@@ -476,6 +460,21 @@ SP_CTRL_DONE:
 .IF USE_SP
 
 ;******************************************************************
+; SP_STATUS
+;   The Status command returns information about a specific device.
+; The information returned by this command is determined by status code.
+; On return from a Status call, the microprocessor X and Y registers are set to
+; indicate the number of bytes transferred to the Apple II by the command. The X
+; register is set to the low byte of the count, and the Y register is set to the high byte.
+; The parameter list for this call is as follows:
+; Byte Definition
+;  0   parameter list length
+;  1   unit number
+; 2-3  status list pointer (lsb-msb)
+;  4   status code
+; INPUT
+;   X - UNIT DESTINATION
+;   Y - STATUS CODE
 ;******************************************************************
 SP_STATUS:
 
@@ -605,7 +604,6 @@ NUM_DEVICES:    .BYTE $00
 ; ISTROUT
 ;   Display string in inverse
 ;**********************************
-
 ISTROUT:
                 STA ZP1_LO
                 STY ZP1_HI
@@ -670,7 +668,7 @@ NEXT_DEV:
                 JSR SP_STATUS
                 BCS DISPLAY_ERROR_OUT   ; SHOULD NEVER HAPPEN, BUT IF IT DOES, JUST EXIT
 
-                JSR PRINT_PAYLOAD
+                JSR PRINT_SP_PAYLOAD
 
                 JSR CROUT
 
@@ -701,11 +699,11 @@ FIND_DEVICE_STR:        .RES 255
 FIND_DEVICE_STR_LEN:    .BYTE 0
 
 ;*******************************
-; PRINT_PAYLOAD
+; PRINT_SP_PAYLOAD
 ;   Display the ASCII contents
 ; of the payload buffer
 ;**********************************
-PRINT_PAYLOAD:
+PRINT_SP_PAYLOAD:
                 SAVE_REGS
 
                 LDX #$00
@@ -736,7 +734,6 @@ PPAYLOAD:
 ;   Y = Low byte address of string
 ;   X = Device number or $FF on failure
 ;*********************************
-
 SP_FIND_DEVICE:
 
 .IF USE_TRACE

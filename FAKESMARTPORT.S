@@ -22,22 +22,58 @@ GOT_LENGTH3:
                 STX SP_PAYLOAD+4         ; X = LENGTH INCLUDES NULL
 
 
-
+;*******************************
+; FIND_SMARTPORT_SLOT
+; INPUT:
+;   NONE
+;***
+; RETURN
+;   A = $FF - NO SMARTPORT FOUND
+;   A = $CX - WHERE X IS THE SLOT
+;**********************************
 FIND_SMARTPORT_SLOT:
                 LDA #$C5                ; FAKE SMARTPORT FOR TESTING $C500
                 LDA SLOT_ADDR_HI
                 RTS                     ; WE FOUND IT! A = SLOT ADDRESS
 
 
+;*******************************
+; GET_SMARTPORT_DISPATCH_ADDRESS
+; INPUT:
+;   NONE
+;***
+; RETURN
+;   -A DISPATCHER ADDRESS HIGH
+;   -X DISPATCHER ADDRESS LOW
+; OR A AND X WILL BE SET TO $FF
+; IF DISPATCHER NOT FOUND
+;**********************************
 GET_SMARTPORT_DISPATCH_ADDRESS:
                 ; FAKE SMARTPORT DISPATCHER
 
-                LDA #<FAKE_DISPATCHER
-                STA DISPATCHER_ADDR_LO
+                LDX #<FAKE_DISPATCHER
+                STX DISPATCHER_ADDR_LO
                 LDA #>FAKE_DISPATCHER
                 STA DISPATCHER_ADDR_HI
                 RTS
 
+;******************************************************************
+; SP_STATUS
+;   The Status command returns information about a specific device.
+; The information returned by this command is determined by status code.
+; On return from a Status call, the microprocessor X and Y registers are set to
+; indicate the number of bytes transferred to the Apple II by the command. The X
+; register is set to the low byte of the count, and the Y register is set to the high byte.
+; The parameter list for this call is as follows:
+; Byte Definition
+;  0   parameter list length
+;  1   unit number
+; 2-3  status list pointer (lsb-msb)
+;  4   status code
+; INPUT
+;   X - UNIT DESTINATION
+;   Y - STATUS CODE
+;******************************************************************
 SP_STATUS:
 
 .IF USE_TRACE
@@ -138,6 +174,17 @@ FAKE_DISPATCHER:
 FAKE_DEV:      .RES 255
 FAKE_DEV_LEN:   .BYTE 0
 
+;*******************************
+; SP_FIND_DEVICE
+;   Looks for the specified smartport device
+; INPUT
+;   Put NULL terminated string of device to
+;   search for in FIND_DEVICE_STR
+; RETURNS
+;   A = High byte address of string
+;   Y = Low byte address of string
+;   X = Device number or $FF on failure
+;*********************************
 SP_FIND_DEVICE:
 
 .IF USE_TRACE
