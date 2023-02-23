@@ -1,5 +1,32 @@
 
 
+FN_ERR_WRITE_ONLY       = 131	    ;Protocol is in Write-only mode
+FN_ERR_INVALID_COMMAND  = 132	    ;Protocol was sent an invalid command
+FN_ERR_MISSING_PROTO    = 133	    ;No protocol attached.
+FN_ERR_READ_ONLY        = 135	    ;Protocol is in read-only mode
+FN_ERR_TIMED_OUT        = 138	    ;Timed out
+FN_ERR_CRITICAL         = 144	    ;A critical error occurred. SIO reports this, get the actual Error code from byte 4 of STATUS.
+FN_ERR_CMD_NOT_IMPLEMENTED = 146	;Command not implemented
+FN_ERR_FILE_EXISTS      = 151	    ;File Exists
+FN_ERR_NO_SPACE         = 162	    ;No space on device
+FN_ERR_INVALID_URL      = 165	    ;Invalid Devicespec
+FN_ERR_ACCESS_DENIED    = 167	    ;Access Denied
+FN_ERR_FILE_NOT_FOUND   = 170	    ;File not found (emitted by filesystem adaptors)
+FN_ERR_REFUSED          = 200	    ;Connection Refused (equivalent to errno ECONNREFUSED)
+FN_ERR_UNREACHABLE      = 201	    ;Network Unreachable (equivalent to errno ENETUNREACH)
+FN_ERR_CONNECTION_TIMEOUT   = 202	;Connection Timeout (equivalent to errno ETIMEDOUT)
+FN_ERR_NETWORK_DOWN     = 203	    ;Network is down (equivalent to errno ENETDOWN)
+FN_ERR_CONNECTION_RESET = 204	    ;Connection was reset during read/write (equivalent to errno ECONNRESET)
+FN_ERR_CIP              = 205	    ;Connection in progress (EAGAIN)
+FN_ERR_ADDRESS_IN_USE   = 206	    ;Address in use (EADDRINUSE)
+FN_ERR_NOT_CONNECTED    = 207	    ;Not Connected
+FN_ERR_SERVER_NOT_RUNNING = 208	    ;Server not Running
+FN_ERR_NO_CONNECTION_WAITING = 209	;No connection waiting
+FN_ERR_SERVICE_NOT_AVAILABLE = 210	;Service Not Available
+FN_ERR_CONNECTION_ABORTED = 211	    ;Connection Aborted
+FN_ERR_BAD_CREDENTIALS  = 212	    ;Invalid Username or Password (debating whether to overload as access denied.)
+FN_ERR_MEMORY_ERROR     = 255	    ;Could not allocate either receive or transmit buffers.
+
 ; X = DEVICE
 
 .IF USE_TRACE
