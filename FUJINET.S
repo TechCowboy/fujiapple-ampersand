@@ -1,19 +1,4 @@
-;void connect(void)
-;{
-;  sp_open(net);
-;  sp_payload[0]=0x02; // 258 bytes
-;  sp_payload[1]=0x01;
-;  sp_payload[2]=0x0C; // READ/WRITE (or GET)
-;  sp_payload[3]=0x80; // NO TRANSLATION
-;  memcpy(&sp_payload[4],url,256)
-;  sp_control(net,'O'); // Do the open.  ;
-;}
 
-;bool isConnected(void)
-;{
-;  sp_status(net,'S');
-;  return sp_payload[2] & 0x02; // Bit 2 = Connected?
-;}
 
 ; X = DEVICE
 
@@ -56,16 +41,7 @@ GOT_LENGTH2:
 
                 RTS
 
-;void connect(void)
-;{
-;  sp_open(net);
-;  sp_payload[0]=0x02; // 258 bytes
-;  sp_payload[1]=0x01;
-;  sp_payload[2]=0x0C; // READ/WRITE (or GET)
-;  sp_payload[3]=0x80; // NO TRANSLATION
-;  memcpy(&sp_payload[4],url,256)
-;  sp_control(net,'O'); // Do the open.  ;
-;}
+
 FN_OPEN:
 
 .IF USE_TRACE
@@ -85,7 +61,7 @@ FN_OPEN:
                 DEY
                 STY PAYLOAD+1
                 
-                LDA #$0C                ; ??
+                LDA MODE                ; READ OR WRITE OR BOTH
                 STA PAYLOAD+2
                 
                 LDA TRANSLATION         ; CHARACTER TRANSLATION

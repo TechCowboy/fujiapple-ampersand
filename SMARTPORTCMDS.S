@@ -335,16 +335,37 @@ SP_CLOSE_DONE:
 ; SP_CONTROL
 ;The Control command provides two basic functions. The first is to execute device
 ;control routines designed by Apple. The second is to execute Fujinet commands. 
-;Although each control code has its own parameter list, the following generic list
-;shows the basic format they all adhere to.
-
+;Although each control code has its own parameter list.
+;
+; FUJINET SPECIFC
 ;Byte   Definition
-; 'O'
+; 'O'-open
 ;0-1    payload size
-;2      ??
+;2      mode read or write or both
 ;3      translation
-;4      left of string
-;5...   string
+;4      length of url
+;5...   url
+;
+; 'C'-close
+;0-1    payload size $00
+;
+;'R'
+;0-1   payload size (bytes to return)
+;2..   data
+;
+;'W'
+; 0-1  payload size (bytes to write)
+; 2..  data
+;
+;'A'
+; accept connection
+;
+; 'c'
+; close client connection
+;
+;'D'
+; set UDP destination
+;
 ; INPUT
 ;  X = UNIT
 ;  Y = CONTROL CODE
