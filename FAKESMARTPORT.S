@@ -84,9 +84,12 @@ SP_STATUS:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE26
                 LDA #<SP_STATUS_STR
                 LDY #>SP_STATUS_STR
                 JSR STROUT
+NO_TRACE26:                
                 RESTORE_REGS
 .ENDIF
 
@@ -195,9 +198,12 @@ SP_FIND_DEVICE:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE27
                 LDA #<SP_FIND_DEVICE_STR
                 LDY #>SP_FIND_DEVICE_STR
                 JSR STROUT
+NO_TRACE27:                
                 RESTORE_REGS
 .ENDIF
 

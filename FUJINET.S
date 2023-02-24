@@ -75,9 +75,12 @@ FN_OPEN:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE20
                 LDA #<FN_OPEN_STR
                 LDY #>FN_OPEN_STR
                 JSR STROUT
+NO_TRACE20:                
                 RESTORE_REGS
 .ENDIF
 
@@ -103,8 +106,11 @@ FN_OPEN:
 
                 JSR CPY_URL_TO_PAYLOAD  ; TRANSFER THE URL
 .IF USE_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE21
                 JSR PRINT_SP_PAYLOAD    ; PRINT THE URL
                 JSR CROUT
+NO_TRACE21:                
 .ENDIF
                 PLA                     ; GET BACK OUR DEVICE NUMBER
                 TAX
@@ -118,9 +124,12 @@ FN_CLOSE:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE22
                 LDA #<FN_CLOSE_STR
                 LDY #>FN_CLOSE_STR
                 JSR STROUT
+NO_TRACE22:                
                 RESTORE_REGS
 .ENDIF
 
@@ -145,9 +154,12 @@ FN_IS_CONNECTED:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE23
                 LDA #<FN_IS_CONNECTED_STR
                 LDY #>FN_IS_CONNECTED_STR
                 JSR STROUT
+NO_TRACE23:                
                 RESTORE_REGS
 .ENDIF
 
@@ -163,9 +175,12 @@ FN_BYTES_WAITING:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE24
                 LDA #<FN_BYTES_WAITING_STR
                 LDY #>FN_BYTES_WAITING_STR
                 JSR STROUT
+NO_TRACE24:                
                 RESTORE_REGS
 .ENDIF
 
@@ -180,9 +195,12 @@ FIND_NETWORK:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE25
                 LDA #<FIND_NETWORK_STR
                 LDY #>FIND_NETWORK_STR
                 JSR STROUT
+NO_TRACE25:                
                 RESTORE_REGS
 .ENDIF
 

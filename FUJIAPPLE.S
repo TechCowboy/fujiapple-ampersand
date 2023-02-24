@@ -5,6 +5,12 @@
 ;
 ; VERSION: 1.05 - updated to use ca65
 ;
+; NOTES:
+;   If you set USE_TRACE a large about of debug info will be included
+; You can turn on and off the debug messages using &NTRACE and &NNOTRACE
+;   If you want to test your code without a smartport card (for emulators)  
+; you can set USE_SP 
+;
 ; With ca65 task
 ;{
 ;    "version": "2.0.0",
@@ -60,6 +66,8 @@ TOK_AT                  =       197       ; APPLESOFT TOKEN FOR AT
 TOK_END                 =       128       ; APPLESOFT TOKEN FOR END
 QUOTE                   =       $22       ; ASCII QUOTE CHARACTER
 TOK_LIST                =       188       ; APPLESOFT TOKEN FOR LIST                          
+TOK_TRACE               =       155       ; APPLESOFT TOKEN FOR TRACE       
+TOK_NOTRACE             =       156       ; APPLESOFT TOKEN FOR NOTRACE
 
 ;*********************************************************                           
 
@@ -67,16 +75,16 @@ STARTOFFILE:
 
 NINIT:
 
+.IF USE_TRACE
+                JSR NTRACE
+.ELSE
+                JSR NNOTRACE
+.ENDIF
+
                 LDA #<FUJIAPPLE_VER_STR                 ; "VERSON: YYYYMMDD.HHMM"
                 LDY #>FUJIAPPLE_VER_STR
                 JSR STROUT
                 JSR CROUT
-
-.IF USE_TRACE
- ;               LDA #<DISPATCH_ADDRESS_STR              ; "SMARTPORT ADDRESS:"
- ;               LDY #>DISPATCH_ADDRESS_STR
- ;               JSR STROUT
-.ENDIF
 
                 JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
 
@@ -87,27 +95,16 @@ NINIT:
                 LDA #<SP_NOT_FOUND                      ; "SMARTPORT NOT FOUND!"
                 LDY #>SP_NOT_FOUND
                 JSR STROUT
+
+.IF USE_TRACE
+                LDA #<EXITING_STR
+                LDY #>EXITING_STR
+                JSR STROUT
+.ENDIF
                 RTS
 
 FOUND_SMARTPORT:
 
-.IF USE_TRACE
-;                JSR DISPLAY_SP_STATUS                   ; SHOW THE ID AND VERSION
-;                JSR DISPLAY_SP_DEVICES                  ; SHOW ALL THE DEVICES
-
-;                LDA #<FUJI_DISK_0_STR
-;                LDY #>FUJI_DISK_0_STR
-;                JSR SP_FIND_DEVICE
-;                JSR PRTX
-;                JSR CROUT
-
-;                LDA #<NETWORK_STR
-;                LDY #>NETWORK_STR
-;                JSR SP_FIND_DEVICE
-;                JSR PRTX
-;                JSR CROUT
-
-.ENDIF
 
 ; RELOCATE US TO WHERE IT'S SAFE
 
@@ -172,6 +169,7 @@ SAVEVECT:
                 LDA #<EXTADDED          ; "FUJINET EXTENSION ADDED"
                 LDY #>EXTADDED          
                 JSR STROUT
+
 .IF PRODOS
                 RTS
 .ELSE
@@ -367,10 +365,13 @@ NOPEN:
 
 
 .IF USE_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE1
                 LDA #<NOPEN_STR ; "NOPEN"
                 LDY #>NOPEN_STR
                 JSR STROUT
                 JSR CROUT
+NO_TRACE1:
 .ENDIF
 
                 JSR GETBYT      ; GET THE UNIT
@@ -444,11 +445,13 @@ NCLOSE:
 ; Closes a network connection.
 
 .IF USE_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE2
                 LDA #<NCLOSE_STR
                 LDY #>NCLOSE_STR
                 JSR  STROUT
                 JSR CROUT
-
+NO_TRACE2:                
 .ENDIF
 
                 JSR   GETBYT     ; GET THE UNIT
@@ -476,10 +479,13 @@ NREAD:
 ; Gets len number of bytes and puts them into string variable var$
 
 .IF USE_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE3
                 LDA #<NREAD_STR ; "NREAD"
                 LDY #>NREAD_STR
                 JSR  STROUT
                 JSR CROUT
+NO_TRACE3:                
 .ENDIF
 
                 JSR   GETBYT    ; GET THE UNIT
@@ -531,10 +537,13 @@ NWRITE:
 ; Gets len number of bytes and puts them into string variable var$
 
 .IF USE_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE4
                 LDA #<NWRITE_STR        
                 LDY #>NWRITE_STR
                 JSR STROUT
                 JSR CROUT
+NO_TRACE4:
 .ENDIF
 
                 JSR   GETBYT     ; GET UNIT
@@ -590,10 +599,13 @@ NCTRL:
 ; is specified as the very last parameter.
 
 .IF USE_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE5
                 LDA #<NCTRL_STR
                 LDY #>NCTRL_STR
                 JSR STROUT
                 JSR CROUT
+NO_TRACE5:
 .ENDIF
 
                 JSR   GETBYT     ; GET UNIT
@@ -651,10 +663,13 @@ NSTATUS:
 ; the network error code
 
 .IF USE_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE6
                 LDA #<NSTATUS_STR
                 LDY #>NSTATUS_STR
                 JSR STROUT
                 JSR CROUT
+NO_TRACE6:                
 .ENDIF
 
                 JSR GETBYT
@@ -714,10 +729,13 @@ NEND:
 ; put the original vector back
 
 .IF USE_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE7
                 LDA #<NEND_STR
                 LDY #>NEND_STR
                 JSR  STROUT
                 JSR CROUT
+NO_TRACE7:
 .ENDIF
 
 .IF RELOCATE
@@ -769,16 +787,45 @@ NLIST:
 ; Display devices
 
 .IF USE_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE8
                 LDA #<NLIST_STR
                 LDY #>NLIST_STR
                 JSR  STROUT
                 JSR CROUT
+NO_TRACE8:                
 .ENDIF
 
                 JSR DISPLAY_SP_DEVICES
 
                 RTS
 
+.IF USE_TRACE
+;*******************************************
+NTRACE:
+; &NTRACE
+; Display debug messages
+
+                LDA #<NTRACE_STR
+                LDY #>NTRACE_STR
+                JSR STROUT
+                JSR CROUT
+             
+                LDA #$01
+                STA TRACE_FLAG
+
+                RTS
+
+;*******************************************
+NNOTRACE:
+; &NNOTRACE
+; Display debug messages
+
+                LDA #$00
+                STA TRACE_FLAG
+
+                RTS
+.ENDIF
 
         .include "SMARTPORTCMDS.S"
         .include "FAKESMARTPORT.S"
@@ -849,6 +896,14 @@ relocate007:    .WORD   NEND-1
                 .BYTE   "N", TOK_LIST, 0        ; NLIST
 relocate008:    .WORD   NLIST-1
 
+.IF USE_TRACE
+                .BYTE   "N", TOK_TRACE, 0       ; NTRACE
+                .WORD   NTRACE-1
+
+                .BYTE   "N",TOK_NOTRACE, 0      ; NNOTRACE
+                .WORD   NNOTRACE-1
+.ENDIF
+
 ;*******************************************
 ;* END OF TABLE
 ;*******************************************
@@ -862,10 +917,13 @@ NLIST_STR:      .ASCIIZ "NLIST"
 HIMEM_IS:       .ASCIIZ "CURRENT ADDRESS OF HIMEM: "
 RELOC_SIZE:     .BYTE   $0D
                 .ASCIIZ "RELOCATION SIZE: "
-DISPATCH_ADDRESS_STR: 
-                .ASCIIZ "DISPATCHER ADDRESS: "
+EXITING_STR:    .ASCIIZ "EXITING..."
+
+NTRACE_STR:     .ASCIIZ "NTRACE"                
+TRACE_FLAG:     .BYTE   $01
+
 .ENDIF
-SP_NOT_FOUND:   .BYTE   "SMARTPORT NOT FOUND! EXTENSIONS NOT LOADED", $0D, $00
+SP_NOT_FOUND:   .BYTE   "NO SMARTPORT! EXTENSIONS NOT LOADED", $0D, $00
 NOT_OPENED:     .ASCIIZ "UNIT NOT OPENED!"
 
 PREVECT:        .RES 3                  ; JUMP TO CONTENTS OF THE PREVIOUS AMPERSAND VECTOR
@@ -896,9 +954,6 @@ NETWORK:        .BYTE         $FF, $FF, $FF, $FF
 RELOCATE_DATA_END:
 
 ; Anything here is only used during setup and doesn't need to be relocated.
-
-
-
 
 
 .include "RELOCATION.S" 

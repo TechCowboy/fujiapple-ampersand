@@ -94,6 +94,7 @@ SLOT_ADDR_HI		=	ZP2_HI
 
 FIND_SMARTPORT_SLOT_STR: .BYTE "FIND_SMARTPORT_SLOT", $0D, $00
 GET_SMARTPORT_DISPATCH_ADDRESS_STR: .BYTE "GET_SMARTPORT_DISPATCH_ADDRESS", $0D, $00
+DISPATCHER_ADDRESS_STR:  .ASCIIZ "DISPATCHER ADDRESS:" 
 SP_OPEN_STR:             .BYTE "SP_OPEN",    $0D, $00
 SP_CLOSE_STR:            .BYTE "SP_CLOSE",   $0D, $00
 SP_CONTROL_STR:          .BYTE "SP_CONTROL", $00
@@ -101,7 +102,7 @@ SP_STATUS_STR:           .BYTE "SP_STATUS",  $0D, $00
 CALL_DISPATCHER_STR:     .BYTE "CALL_DISPATCHER",   $0D, $00
 DISPLAY_SP_STATUS_STR:   .BYTE "DISPLAY_SP_STATUS", $0D, $00
 SP_FIND_DEVICE_STR:      .BYTE "SP_FIND_DEVICE",    $0D, $00
-REAL:                    .BYTE "REAL SMARTPORT", $0D, $00
+REAL_STR:                .BYTE "REAL SMARTPORT", $0D, $00
 .ENDIF
 
 
@@ -120,12 +121,17 @@ FIND_SMARTPORT_SLOT:
 
 .IF USE_TRACE
                 SAVE_REGS
-                LDA #<REAL
-                LDY #>REAL
+                LDA TRACE_FLAG
+                BEQ NO_TRACE10
+
+                LDA #<REAL_STR
+                LDY #>REAL_STR
                 JSR STROUT
+                JSR CROUT
                 LDA #<FIND_SMARTPORT_SLOT_STR
                 LDY #>FIND_SMARTPORT_SLOT_STR
                 JSR STROUT
+ NO_TRACE10:               
                 RESTORE_REGS
 .ENDIF
 
@@ -140,7 +146,7 @@ SCAN:
 
 NEXT_MATCH:
                 LDA (SLOT_ADDR),Y       ; COMPARE TO THE MAGIC NUMBERS
-                CMP SMARTPORT_ID,X        ; 
+                CMP SMARTPORT_ID,X      ; 
                 BNE NEXT_SLOT           ; NOT THE SAME, SO GO TO NEXT SLOT
 
                 INY                     ; PREPARE TO CHECK THE NEXT NUMBER
@@ -160,11 +166,31 @@ NEXT_SLOT:
 
 
 FOUND:
-                LDA SLOT_ADDR_HI
-                RTS                     ; WE FOUND IT! A = SLOT ADDRESS
+                LDA #$00
+                STA SLOT_ADDR_LO
+                STX SLOT_ADDR_HI
+                
+
+                TXA             
+                CLC                     ; WE FOUND IT! A = SLOT ADDRESS
+                BCC SLOT_FIND_DONE
 
 NOT_FOUND:
                 LDA #$FF                ; WE DIDN'T FIND IT
+                STA SLOT_ADDR_LO
+                STA SLOT_ADDR_HI
+
+SLOT_FIND_DONE:
+.IF USE_TRACE        
+                SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE28
+                LDX SLOT_ADDR_HI
+                JSR PRTX
+                JSR CROUT
+ NO_TRACE28:               
+                RESTORE_REGS  
+.ENDIF 
                 RTS
         
 SMARTPORT_ID:   .BYTE $20, $00, $03, $00 
@@ -189,9 +215,12 @@ GET_SMARTPORT_DISPATCH_ADDRESS:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE11
                 LDA #<GET_SMARTPORT_DISPATCH_ADDRESS_STR
                 LDY #>GET_SMARTPORT_DISPATCH_ADDRESS_STR
                 JSR STROUT
+NO_TRACE11:                
                 RESTORE_REGS
 .ENDIF
 
@@ -235,6 +264,18 @@ NO_DISPATCHER:
                 STX DISPATCHER_ADDR_LO
 DONE:        
 
+.IF USE_TRACE
+                SAVE_REGS
+                LDA #<DISPATCHER_ADDRESS_STR
+                LDY #>DISPATCHER_ADDRESS_STR
+                JSR STROUT
+                LDA DISPATCHER_ADDR_HI
+                LDX DISPATCHER_ADDR_LO
+                JSR PRTAX
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
+
                 RTS
 .ENDIF
 
@@ -256,12 +297,15 @@ SP_OPEN:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE12
                 LDA #<SP_OPEN_STR
                 LDY #>SP_OPEN_STR
                 JSR STROUT
 
                 JSR PRINT_SP_PAYLOAD
                 JSR CROUT
+NO_TRACE12:                
                 RESTORE_REGS
 .ENDIF
 
@@ -305,9 +349,12 @@ SP_CLOSE:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE13
                 LDA #<SP_CLOSE_STR
                 LDY #>SP_CLOSE_STR
                 JSR STROUT
+NO_TRACE13:                
                 RESTORE_REGS
 .ENDIF
 
@@ -382,7 +429,9 @@ SP_CONTROL:
 
 .IF USE_TRACE
                 SAVE_REGS
-                
+                LDA TRACE_FLAG
+                BEQ NO_TRACE14
+
                 LDA #<SP_CONTROL_STR
                 LDY #>SP_CONTROL_STR
                 JSR STROUT
@@ -396,6 +445,7 @@ SP_CONTROL:
                 LDX CMD_LIST+4
                 JSR PRTX
                 JSR CROUT
+NO_TRACE14:                
                 RESTORE_REGS
 .ENDIF
 
@@ -498,9 +548,12 @@ SP_STATUS:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE15
                 LDA #<SP_STATUS_STR
                 LDY #>SP_STATUS_STR
                 JSR STROUT
+NO_TRACE15:                
                 RESTORE_REGS
 .ENDIF
 
@@ -548,9 +601,12 @@ CALL_DISPATCHER:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE16
                 LDA #<CALL_DISPATCHER_STR
                 LDY #>CALL_DISPATCHER_STR
                 JSR STROUT
+NO_TRACE16:                
                 RESTORE_REGS
 .ENDIF
                 JMP (SMARTPORT_DISPATCHER)
@@ -574,9 +630,12 @@ DISPLAY_SP_STATUS:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE17
                 LDA #<DISPLAY_SP_STATUS_STR
                 LDY #>DISPLAY_SP_STATUS_STR
                 JSR STROUT
+NO_TRACE17:                
                 RESTORE_REGS
 .ENDIF
 
@@ -756,9 +815,12 @@ SP_FIND_DEVICE:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE18
                 LDA #<SP_FIND_DEVICE_STR
                 LDY #>SP_FIND_DEVICE_STR
                 JSR STROUT
+NO_TRACE18:                
                 RESTORE_REGS
 .ENDIF
 
@@ -781,9 +843,12 @@ GOT_LENGTH:
 
 .IF USE_TRACE
                 SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE19
                 LDA #<FIND_DEVICE_STR
                 LDY #>FIND_DEVICE_STR
                 JSR CROUT
+NO_TRACE19:                
                 RESTORE_REGS
 
 .ENDIF

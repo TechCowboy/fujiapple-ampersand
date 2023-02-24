@@ -54,7 +54,6 @@ ZP5		    =	$AA
 .ENDIF
 
 .MACRO SAVE_REGS
-        PHP
         PHA
         TXA
         PHA
@@ -68,7 +67,6 @@ ZP5		    =	$AA
         PLA
         TAX
         PLA
-        PLP
 .ENDMACRO
 
 
