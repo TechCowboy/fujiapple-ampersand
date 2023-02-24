@@ -165,14 +165,8 @@ NEXT_SLOT:
                 BNE SCAN                ; CONTINUE SCANNING
 
 
-FOUND:
-                LDA #$00
-                STA SLOT_ADDR_LO
-                STX SLOT_ADDR_HI
-                
-
-                TXA             
-                CLC                     ; WE FOUND IT! A = SLOT ADDRESS
+FOUND:                    
+                CLC                     ; WE FOUND IT! X = SLOT ADDRESS 
                 BCC SLOT_FIND_DONE
 
 NOT_FOUND:
@@ -185,12 +179,14 @@ SLOT_FIND_DONE:
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE28
-                LDX SLOT_ADDR_HI
-                JSR PRTX
+                LDA SLOT_ADDR_HI
+                LDX SLOT_ADDR_LO
+                JSR PRTAX
                 JSR CROUT
  NO_TRACE28:               
                 RESTORE_REGS  
 .ENDIF 
+                TAX
                 RTS
         
 SMARTPORT_ID:   .BYTE $20, $00, $03, $00 
