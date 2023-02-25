@@ -111,7 +111,7 @@ FIND_SMARTPORT_SLOT:
                 BEQ NO_TRACE10
 
 .IF EXT_TRACE
-                PRINT_STR REAL_STR_ADDR
+                PRINT_STR REAL_SMARTPORT_STR_ADDR
 .ENDIF
 
                 PRINT_STR FIND_SMARTPORT_SLOT_STR_ADDR
@@ -243,8 +243,10 @@ NO_DISPATCHER:
                 STX DISPATCHER_ADDR_LO
 DONE:        
 
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 PRINT_STR DISPATCHER_ADDRESS_STR_ADDR
+.ENDIF
 
                 LDA DISPATCHER_ADDR_HI
                 LDX DISPATCHER_ADDR_LO
@@ -275,6 +277,7 @@ DONE:
 SP_OPEN:
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE12
@@ -284,6 +287,7 @@ SP_OPEN:
                 JSR CROUT
 NO_TRACE12:                
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 LDA #SP_OPEN_PARAM_COUNT        ; 3
@@ -323,12 +327,14 @@ SP_OPEN_DONE:
 SP_CLOSE:
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE13
                 PRINT_STR SP_CLOSE_STR_ADDR
 NO_TRACE13:                
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 LDA #SP_CLOSE_PARAM_COUNT       ; 3
@@ -514,12 +520,14 @@ SP_CTRL_DONE:
 SP_STATUS:
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE15
                 PRINT_STR SP_STATUS_STR_ADDR
 NO_TRACE15:                
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 LDA #SP_STATUS_PARAM_COUNT
@@ -563,12 +571,14 @@ SP_STATUS_DONE:
 CALL_DISPATCHER:
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE16
                 PRINT_STR CALL_DISPATCHER_STR_ADDR
 NO_TRACE16:                
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 JMP (SMARTPORT_DISPATCHER)
@@ -583,12 +593,14 @@ NO_TRACE16:
 DISPLAY_SP_STATUS:
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE17
                 PRINT_STR DISPLAY_SP_STATUS_STR_ADDR
 NO_TRACE17:                
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 LDX #$00                                ; SMARTPORT DEVICE ZERO
@@ -750,12 +762,14 @@ PPAYLOAD:
 SP_FIND_DEVICE:
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE18
                 PRINT_STR SP_FIND_DEVICE_STR_ADDR
 NO_TRACE18:                
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 STA ZP1_LO
@@ -776,14 +790,16 @@ GOT_LENGTH:
                 STX FIND_DEVICE_STR_LEN         ; LENGTH INCLUDES NULL
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE19
-                LDA FIND_DEVICE_STR_ADDR+1
-                LDY FIND_DEVICE_STR_ADDR
+                LDA SP_FIND_DEVICE_STR_ADDR+1
+                LDY SP_FIND_DEVICE_STR_ADDR
                 JSR CROUT
 NO_TRACE19:                
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 LDX #$00

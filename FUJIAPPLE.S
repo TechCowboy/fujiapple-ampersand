@@ -31,11 +31,11 @@
 ;}
 
 STRIP_TRACE= 0  ; Eliminate all tracing code and strings
-EXT_TRACE  = 0  ; Extended Trace, 1=display more internal debug messages 
+EXT_TRACE  = 1  ; Extended Trace, 1=display more internal debug messages 
 RELOCATE   = 1  ; 1=relocate himem and put our code there
 PRODOS     = 1  ; 0=add dos 3.3 header
 APPLEII    = 1  ; always set to one, EQUs will be for apple zero page
-USE_SP     = 0  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
+USE_SP     = 1  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
 
 START      = $4000
 
@@ -85,7 +85,7 @@ NINIT:
 .IF EXT_TRACE
                 LDA #<FUJIAPPLE_VER_STR                 ; "VERSON: YYYYMMDD.HHMM" - FILLED BY PYTHON SCRIPT
                 LDY #>FUJIAPPLE_VER_STR
-                JSR  
+                JSR  STROUT
 .ENDIF
 .ENDIF
                 JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
@@ -115,8 +115,8 @@ FOUND_SMARTPORT:
 .IF .NOT STRIP_TRACE
 .IF EXT_TRACE
                 JSR CROUT               ; CARRIAGE RETURN
-                LDA #<HIMEM_IS          ; "HIMEM IS:"
-                LDY #>HIMEM_IS
+                LDA #<HIMEM_IS_STR          ; "HIMEM IS:"
+                LDY #>HIMEM_IS_STR
                 JSR STROUT
 
                 LDA HIMEM+1
@@ -851,10 +851,10 @@ relocate008:    .WORD   NLIST-1
 
 .IF .NOT STRIP_TRACE
                 .BYTE   "N", TOK_TRACE, 0       ; NTRACE
-relocate009:    .WORD   NTRACE-1
+trace028:    .WORD   NTRACE-1
 
                 .BYTE   "N",TOK_NOTRACE, 0      ; NNOTRACE
-relocate010:    .WORD   NNOTRACE-1
+trace029:    .WORD   NNOTRACE-1
 .ENDIF
 
 ;*******************************************
@@ -877,7 +877,7 @@ UNIT:           .BYTE         0
 MODE:           .BYTE         0
 TRANSLATION:    .BYTE         0
 URL:            .RES          255
-relocate011:
+relocate009:
 URL_ADDR:       .WORD         URL
 URL_LEN:        .BYTE         0
 COMMAND:        .BYTE         0
@@ -889,7 +889,7 @@ BUF:            .RES          255      ; GENERIC BUFFER FOR READ/WRITE
 BUFLEN:         .BYTE         0
 STRADDR:        .WORD         0
 STRBUF:         .RES          255
-relocate012:
+relocate010:
 STRBUF_ADDR:    .WORD         STRBUF_ADDR
 STRLEN:         .BYTE         0
 NETWORK:        .BYTE         $FF, $FF, $FF, $FF
@@ -905,7 +905,7 @@ RELOCATE_DATA_END:
 
 RELOCATION_TABLE:
 		.WORD 	relocate000+1,relocate001+1,relocate002,relocate003,relocate004,relocate005,relocate006,relocate007,relocate008,relocate009
-		.WORD 	relocate010,relocate011,relocate012;,relocate013,relocate014,relocate015,relocate016,relocate017,relocate018,relocate019
+		.WORD 	relocate010;,relocate011,relocate012,relocate013,relocate014,relocate015,relocate016,relocate017,relocate018,relocate019
 ;		.WORD   relocate020,relocate021,relocate022,relocate023,relocate024,relocate025,relocate026,relocate027,relocate028,relocate029
 
 .include "STR_RELOC.S"

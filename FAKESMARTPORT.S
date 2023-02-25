@@ -93,12 +93,14 @@ GET_SMARTPORT_DISPATCH_ADDRESS:
 SP_STATUS:
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE26
                 PRINT_STR SP_STATUS_STR_ADDR
 NO_TRACE26:                
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 CPX #$00                        ; SMARTPORT DEVICE?
@@ -169,6 +171,7 @@ ERROR:
                 TAX
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE30
@@ -176,6 +179,7 @@ ERROR:
                 JSR CROUT
 NO_TRACE30:
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
 
@@ -245,12 +249,14 @@ SP_FIND_DEVICE:
                 PHA
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE27
                 PRINT_STR SP_FIND_DEVICE_STR_ADDR
 NO_TRACE27:                
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 CPX #$01
