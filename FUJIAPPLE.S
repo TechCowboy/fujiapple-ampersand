@@ -81,7 +81,7 @@ NINIT:
                 JSR NNOTRACE
 .ENDIF
 
-                LDA #<FUJIAPPLE_VER_STR                 ; "VERSON: YYYYMMDD.HHMM"
+                LDA #<FUJIAPPLE_VER_STR                 ; "VERSON: YYYYMMDD.HHMM" - FILLED BY PYTHON SCRIPT
                 LDY #>FUJIAPPLE_VER_STR
                 JSR STROUT
                 JSR CROUT
@@ -103,8 +103,8 @@ NINIT:
 .ENDIF
                 RTS
 
-FOUND_SMARTPORT:
 
+FOUND_SMARTPORT:
 
 ; RELOCATE US TO WHERE IT'S SAFE
 

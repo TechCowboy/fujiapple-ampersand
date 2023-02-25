@@ -165,7 +165,8 @@ NEXT_SLOT:
                 BNE SCAN                ; CONTINUE SCANNING
 
 
-FOUND:                    
+FOUND:
+                TXA                    
                 CLC                     ; WE FOUND IT! X = SLOT ADDRESS 
                 BCC SLOT_FIND_DONE
 
@@ -175,6 +176,7 @@ NOT_FOUND:
                 STA SLOT_ADDR_HI
 
 SLOT_FIND_DONE:
+
 .IF USE_TRACE        
                 SAVE_REGS
                 LDA TRACE_FLAG
@@ -186,7 +188,7 @@ SLOT_FIND_DONE:
  NO_TRACE28:               
                 RESTORE_REGS  
 .ENDIF 
-                TAX
+
                 RTS
         
 SMARTPORT_ID:   .BYTE $20, $00, $03, $00 
@@ -224,8 +226,9 @@ NO_TRACE11:
                 CMP #$FF                ; IF A == $FF THEN NOT FOUND
                 BEQ NO_DISPATCHER
 
+                LDA SLOT_ADDR_HI
                 STA DISPATCHER_ADDR_HI  ; A = $CX WHERE X IS THE SLOT
-                LDA #$00
+                LDA SLOT_ADDR_LO
                 STA DISPATCHER_ADDR_LO  ; COMPLETE ADDRESS IS $CX00
                 
                 LDY #$FF
@@ -246,9 +249,6 @@ NO_TRACE11:
                 LDA DISPATCHER_ADDR_HI
                 ADC #$00
                 STA DISPATCHER_ADDR_HI
-
-                LDA DISPATCHER_ADDR_HI  ; PUT ADDRESS IN A AND X
-                LDX DISPATCHER_ADDR_LO
 
                 CLC
                 BCC DONE
@@ -271,6 +271,9 @@ DONE:
                 JSR CROUT
                 RESTORE_REGS
 .ENDIF
+
+                LDA DISPATCHER_ADDR_HI  ; PUT ADDRESS IN A AND X
+                LDX DISPATCHER_ADDR_LO
 
                 RTS
 .ENDIF
