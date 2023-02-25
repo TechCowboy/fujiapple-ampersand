@@ -2,7 +2,7 @@
     ; DON'T USE THIS CODE
 .ELSE
 
-FAKE:   .BYTE "**** FAKE SMARTPORT ****", $0D, $00
+
 
 CPY_STR_TO_SP_PAYLOAD:
                 STA ZP1_LO
@@ -21,6 +21,7 @@ LOOK_FOR_NULL3:
 
 GOT_LENGTH3:
                 STX SP_PAYLOAD+4         ; X = LENGTH INCLUDES NULL
+                RTS
 
 
 ;*******************************
@@ -33,11 +34,20 @@ GOT_LENGTH3:
 ;   A = $CX - WHERE X IS THE SLOT
 ;**********************************
 FIND_SMARTPORT_SLOT:
-                LDA #<FAKE
-                LDY #>FAKE
-                JSR STROUT
-                LDY #>FIND_SMARTPORT_SLOT_STR
-                JSR STROUT
+
+.IF .NOT STRIP_TRACE
+                SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE29
+
+                PRINT_STR FAKE_SMARTPORT_STR_ADDR
+
+                PRINT_STR FIND_SMARTPORT_SLOT_STR_ADDR
+
+NO_TRACE29:
+                RESTORE_REGS
+.ENDIF
+
                 LDA #$C5                ; FAKE SMARTPORT FOR TESTING $C500
                 LDA SLOT_ADDR_HI
                 RTS                     ; WE FOUND IT! A = SLOT ADDRESS
@@ -57,9 +67,9 @@ FIND_SMARTPORT_SLOT:
 GET_SMARTPORT_DISPATCH_ADDRESS:
                 ; FAKE SMARTPORT DISPATCHER
 
-                LDX #<FAKE_DISPATCHER
+                LDX FAKE_DISPATCHER_ADDR
                 STX DISPATCHER_ADDR_LO
-                LDA #>FAKE_DISPATCHER
+                LDA FAKE_DISPATCHER_ADDR+1
                 STA DISPATCHER_ADDR_HI
                 RTS
 
@@ -78,21 +88,29 @@ GET_SMARTPORT_DISPATCH_ADDRESS:
 ;  4   status code
 ; INPUT
 ;   X - UNIT DESTINATION
-;   Y - STATUS CODE
+;   Y - CMD STATUS CODE
 ;******************************************************************
 SP_STATUS:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE26
-                LDA #<SP_STATUS_STR
-                LDY #>SP_STATUS_STR
-                JSR STROUT
+                PRINT_STR SP_STATUS_STR_ADDR
 NO_TRACE26:                
                 RESTORE_REGS
 .ENDIF
 
+                CPX #$00                        ; SMARTPORT DEVICE?
+                BNE SPECIFIC_DEVICE
+
+                ; ASSUME CMD STATUS CODE OF 0
+                ; SMARTPORT STATUS - NUMBER OF DEVICES
+
+                LDA #$02                        ; TWO DEVICES
+                STA DCOUNT
+
+SPECIFIC_DEVICE:
                 LDA #SP_STATUS_PARAM_COUNT
                 STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
                 STX CMD_LIST_DEST               ; DESTINATION DEVICE
@@ -101,18 +119,39 @@ NO_TRACE26:
                 CPY #SP_CMD_STATUS
                 BNE NOT_STATUS
 
-                LDA #<NETWORK_STR
-                LDY #>NETWORK_STR
+; STATUS FOR DEVICE NUMBER GREATER THAN ZERO
+
+NOT_STATUS:
+                CPY#SP_STATUS_DIB               ; GET NAME
+                BNE CMD_UNKNOWN
+
+                LDX CMD_LIST_DEST               ; WHAT DEVICE ARE WE WANTING INFO FROM?
+                CPX #$01
+                BNE NETWORK_DEV2
+
+FUJI_DISK1:                                     ; FUJINET DISK 0?
+                LDA FUJI_DISK_0_STR_ADDR
+                LDY FUJI_DISK_0_STR_ADDR+1
+                CLC
+                BCC COPY_2_PAYLOAD
+
+NETWORK_DEV2:                                   ; NETWORK DEVICE?
+                CPX #$02
+                BNE CMD_UNKNOWN
+
+                LDA NETWORK_STR_ADDR
+                LDY NETWORK_STR_ADDR+1
+
+COPY_2_PAYLOAD:
                 JSR CPY_STR_TO_SP_PAYLOAD
-                INX
-                INX
-                INX
-                INX
+
+ADD_FAKE:
+                LDX #255
                 STX SP_COUNT
                 LDY #$00
                 STY SP_COUNT+1
 
-NOT_STATUS:
+CMD_UNKNOWN:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
@@ -125,13 +164,20 @@ relocatesp04:   .WORD CMD_LIST
                 BCC SP_STATUS_DONE
 ERROR:
                 PHA
-                LDA #<SP_ERROR
-                LDY #>SP_ERROR
-                JSR STROUT
+                PRINT_STR SP_ERROR_STR_ADDR
                 PLA
                 TAX
+
+.IF .NOT STRIP_TRACE
+                SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE30
                 JSR PRTX
                 JSR CROUT
+NO_TRACE30:
+                RESTORE_REGS
+.ENDIF
+
 
 SP_STATUS_DONE:
 
@@ -195,48 +241,34 @@ FAKE_DEV_LEN:   .BYTE 0
 ;   X = Device number or $FF on failure
 ;*********************************
 SP_FIND_DEVICE:
+                TXA
+                PHA
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE27
-                LDA #<SP_FIND_DEVICE_STR
-                LDY #>SP_FIND_DEVICE_STR
-                JSR STROUT
+                PRINT_STR SP_FIND_DEVICE_STR_ADDR
 NO_TRACE27:                
                 RESTORE_REGS
 .ENDIF
 
-                STA ZP1_LO
-                STY ZP1_HI
-                
-                LDX #$00
-                LDY #$00
-LOOK_FOR_NULL:
-                LDA (ZP1),Y
-                STA FAKE_DEV,X 
-                BEQ GOT_LENGTH
-                INY
-                INX
+                CPX #$01
+                BNE NETWORK_DEV
+
+                LDA FUJI_DISK_0_STR_ADDR
+                LDY FUJI_DISK_0_STR_ADDR+1
                 CLC
-                BCC LOOK_FOR_NULL
+                BCC COPY_STR
+NETWORK_DEV:
+                LDA NETWORK_STR_ADDR
+                LDY NETWORK_STR_ADDR+1
 
-GOT_LENGTH:     
-                STX FAKE_DEV_LEN         ; LENGTH INCLUDES NULL
-
-                LDX #$00        
-SCAN_CHAR:
-                LDA FAKE_DEV,X
-                STA SP_PAYLOAD+5,X      ; STRING
-
-                INX
-                CPX FAKE_DEV_LEN        ; LENGTH OF STRING
-                BNE SCAN_CHAR
-
-                LDA FAKE_DEV_LEN
-                STA SP_PAYLOAD+4
-
-                LDX #$01
+COPY_STR:
+                JSR CPY_STR_TO_SP_PAYLOAD
+                
+                PLA
+                TAX
                 RTS
 
 .ENDIF 

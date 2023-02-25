@@ -3,7 +3,7 @@
 ; Ampersand extension for Fujinet commands
 ; By Norman Davie
 ;
-; VERSION: 1.05 - updated to use ca65
+; VERSION: 1.06 - updated to use ca65
 ;
 ; NOTES:
 ;   If you set USE_TRACE a large about of debug info will be included
@@ -30,15 +30,17 @@
 ;    ]
 ;}
 
-USE_TRACE  = 1  ; 1=display debug messages
-RELOCATE   = 0  ; 1=relocate himem and put our code there
+STRIP_TRACE= 0  ; Eliminate all tracing code and strings
+EXT_TRACE  = 0  ; Extended Trace, 1=display more internal debug messages 
+RELOCATE   = 1  ; 1=relocate himem and put our code there
 PRODOS     = 1  ; 0=add dos 3.3 header
 APPLEII    = 1  ; always set to one, EQUs will be for apple zero page
-USE_SP     = 1  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
+USE_SP     = 0  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
 
 START      = $4000
 
 .IF PRODOS
+
         .ORG START
 
 ; NO HEADER FOR PRODOS
@@ -75,31 +77,33 @@ STARTOFFILE:
 
 NINIT:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 JSR NTRACE
-.ELSE
-                JSR NNOTRACE
 .ENDIF
 
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 LDA #<FUJIAPPLE_VER_STR                 ; "VERSON: YYYYMMDD.HHMM" - FILLED BY PYTHON SCRIPT
                 LDY #>FUJIAPPLE_VER_STR
-                JSR STROUT
-                JSR CROUT
-
+                JSR  
+.ENDIF
+.ENDIF
                 JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
 
                 LDA DISPATCHER_ADDR_HI
                 CMP #$FF                                ; WAS THE CARD FOUND?
                 BNE FOUND_SMARTPORT
 
-                LDA #<SP_NOT_FOUND                      ; "SMARTPORT NOT FOUND!"
-                LDY #>SP_NOT_FOUND
+                LDA #<SP_NOT_FOUND_STR                  ; "SMARTPORT NOT FOUND!"
+                LDY #>SP_NOT_FOUND_STR
                 JSR STROUT
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 LDA #<EXITING_STR
                 LDY #>EXITING_STR
                 JSR STROUT
+.ENDIF
 .ENDIF
                 RTS
 
@@ -108,7 +112,8 @@ FOUND_SMARTPORT:
 
 ; RELOCATE US TO WHERE IT'S SAFE
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 JSR CROUT               ; CARRIAGE RETURN
                 LDA #<HIMEM_IS          ; "HIMEM IS:"
                 LDY #>HIMEM_IS
@@ -120,29 +125,48 @@ FOUND_SMARTPORT:
                 STX OLDHIMEM
 		JSR PRTAX               ; PRINT ADDRESS
 .ENDIF
+.ENDIF
 
 .IF RELOCATE
 		JSR ADJUST_HIMEM        ; Move HIMEM so we can put our code at it. 
 
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
 		LDA #<RELOCATING        ; "RELOCATING TO:"
 		LDY #>RELOCATING
 		JSR STROUT
+.ENDIF
+.ENDIF
+
 		LDA HIMEM+1
 		LDX HIMEM
+
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
 		JSR PRTAX               ; PRINT NEW HIMEM ADDRESS
                 JSR CROUT
+.ENDIF
+.ENDIF
 
                 JSR RELOCATE_TO_HIMEM   ; copy the code and data, adjust all absolute addresses
 .ENDIF
 
 .IF RELOCATE
-                LDA #<RELOC_SIZE        ; "CODE SIZE:"
-                LDY #>RELOC_SIZE
+
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
+                LDA #<RELOC_SIZE_STR        ; "CODE SIZE:"
+                LDY #>RELOC_SIZE_STR
                 JSR STROUT
+
                 LDX #<(RELOCATE_DATA_END - RELOCATE_CODE_START)
                 LDA #>(RELOCATE_DATA_END - RELOCATE_CODE_START)
                 JSR PRTAX               ; PRINT SIZE
                 JSR CROUT
+
+.ENDIF
+.ENDIF
+
 .ENDIF
 
 ; SAVE PREVIOUS VECTOR INFO
@@ -166,8 +190,8 @@ SAVEVECT:
         
 ; ANNOUNCE OUR SUCCESS
 
-                LDA #<EXTADDED          ; "FUJINET EXTENSION ADDED"
-                LDY #>EXTADDED          
+                LDA #<EXTADDED_STR          ; "FUJINET EXTENSION ADDED"
+                LDY #>EXTADDED_STR          
                 JSR STROUT
 
 .IF PRODOS
@@ -247,13 +271,13 @@ RMCMD:
 
 NOMORECMDS:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
 
-                LDA #<NOTFOUND  ; "COMMAND NOT FOUND"
-                LDY #>NOTFOUND
-                JSR STROUT
+                PRINT_STR NOT_FOUND_STR_ADDR  ; "COMMAND NOT FOUND"
                 JSR CROUT
 
+.ENDIF
 .ENDIF
 
                 JMP   PREVECT    ; WE DIDN'T FIND OUR COMAND SO GO TO OLD VECTOR
@@ -279,7 +303,7 @@ CONSUME:
 
                 STA STRBUF-1,Y  ; SAVE THE CHARACTER
                 INY
-                CLC             ; RELOCATIBLE JUMP
+                CLC
                 BCC CONSUME     ; GET THE NEXT CHARACTER
 NULLSTR1:
                 LDA #00
@@ -363,30 +387,25 @@ NOPEN:
 ;        2-LF TO ATASCII EOL
 ;        3-CR/LF TO ATASCII EOL
 
-
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE1
-                LDA #<NOPEN_STR ; "NOPEN"
-                LDY #>NOPEN_STR
-                JSR STROUT
-                JSR CROUT
+                PRINT_STR NOT_OPENED_STR_ADDR   ; "NOPEN"
 NO_TRACE1:
 .ENDIF
-
-                JSR GETBYT      ; GET THE UNIT
+                JSR GETBYT                      ; GET THE UNIT
                 STX UNIT        
 
                 CPX #$04       
-                BMI UNIT_OK1    ; OUT OF RANGE?
+                BMI UNIT_OK1                    ; OUT OF RANGE?
 
                 LDX #ILLEGAL_QUANTITY_ERROR     ; MUST BE BETWEEN 0 AND 3
                 JMP APPLESOFT_ERROR
 
                 
 UNIT_OK1:
-                LDA #<NETWORK_STR       ; TEMPORARY -- WE'LL BE SWITCHING TO NETWORK_0, ETC.
-                LDY #>NETWORK_STR
+                LDA NETWORK_STR_ADDR+1       ; TEMPORARY -- WE'LL BE SWITCHING TO NETWORK_0, ETC.
+                LDY NETWORK_STR_ADDR
                 JSR SP_FIND_DEVICE
                 TXA
                 LDX UNIT
@@ -412,9 +431,9 @@ UNIT_OK1:
 
                 LDA STRLEN     ; GETSTR STORES THE STRING LENGTH HERE
                 STA DSCTMP
-                LDA #<STRBUF   ; THE ADDRESS OF OUR STATIC STRING
+                LDA STRBUF_ADDR+1   ; THE ADDRESS OF OUR STATIC STRING
                 STA DSCTMP+1
-                LDA #>STRBUF
+                LDA STRBUF_ADDR
                 STA DSCTMP+2
                 CLC
                 BCC STORE
@@ -444,17 +463,14 @@ NCLOSE:
 ; &NCLOSE UNIT
 ; Closes a network connection.
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE2
-                LDA #<NCLOSE_STR
-                LDY #>NCLOSE_STR
-                JSR  STROUT
-                JSR CROUT
+                PRINT_STR NCLOSE_STR_ADDR       ; "NCLOSE"
+
 NO_TRACE2:                
 .ENDIF
-
-                JSR   GETBYT     ; GET THE UNIT
+                JSR   GETBYT                    ; GET THE UNIT
                 STX   UNIT
                 
 
@@ -478,16 +494,12 @@ NREAD:
 ; &NREAD UNIT, VAR$, LEN
 ; Gets len number of bytes and puts them into string variable var$
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE3
-                LDA #<NREAD_STR ; "NREAD"
-                LDY #>NREAD_STR
-                JSR  STROUT
-                JSR CROUT
+                PRINT_STR NREAD_STR_ADDR      ; "NREAD"
 NO_TRACE3:                
 .ENDIF
-
                 JSR   GETBYT    ; GET THE UNIT
                 STX   UNIT
                 JSR   CHKCOM
@@ -513,9 +525,7 @@ NO_TRACE3:
                 CMP #$FF
                 BNE UNIT_OK2
 
-                LDA #<NOT_OPENED
-                LDY #>NOT_OPENED
-                JSR STROUT
+                PRINT_STR NOT_OPENED_STR_ADDR
                 JMP SYNERR
 
 UNIT_OK2:
@@ -536,16 +546,12 @@ NWRITE:
 ; &NWRITE UNIT,"STRING",LEN
 ; Gets len number of bytes and puts them into string variable var$
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
-                BEQ NO_TRACE4
-                LDA #<NWRITE_STR        
-                LDY #>NWRITE_STR
-                JSR STROUT
-                JSR CROUT
+                BEQ NO_TRACE4      
+                PRINT_STR NWRITE_STR_ADDR       ; "NWRITE"
 NO_TRACE4:
 .ENDIF
-
                 JSR   GETBYT     ; GET UNIT
                 STX   UNIT
 
@@ -578,9 +584,7 @@ COPYBUF:
                 CMP #$FF
                 BNE UNIT_OK2
 
-                LDA #<NOT_OPENED
-                LDY #>NOT_OPENED
-                JSR STROUT
+                PRINT_STR NOT_OPENED_STR
                 JMP SYNERR
 
 ;****** TO DO *********
@@ -598,16 +602,12 @@ NCTRL:
 ; to do a special command. The payload for this command 
 ; is specified as the very last parameter.
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE5
-                LDA #<NCTRL_STR
-                LDY #>NCTRL_STR
-                JSR STROUT
-                JSR CROUT
+                PRINT_STR NCTRL_STR_ADDR        ; "NCTRL"
 NO_TRACE5:
 .ENDIF
-
                 JSR   GETBYT     ; GET UNIT
                 STX   UNIT
 
@@ -642,9 +642,7 @@ CPY2BUF:
                 CMP #$FF
                 BNE UNIT_OK4
 
-                LDA #<NOT_OPENED
-                LDY #>NOT_OPENED
-                JSR STROUT
+                PRINT_STR NOT_OPENED_STR_ADDR
                 JMP SYNERR
                 
 UNIT_OK4:
@@ -662,16 +660,12 @@ NSTATUS:
 ; CONNECTED equals 1 if connect and NERR returns 
 ; the network error code
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE6
-                LDA #<NSTATUS_STR
-                LDY #>NSTATUS_STR
-                JSR STROUT
-                JSR CROUT
+                PRINT_STR NSTATUS_STR_ADDR
 NO_TRACE6:                
 .ENDIF
-
                 JSR GETBYT
                 STA UNIT       ; STORE THE UNIT NUMBER
 
@@ -694,9 +688,7 @@ NO_TRACE6:
                 CMP #$FF
                 BNE UNIT_OK3
 
-                LDA #<NOT_OPENED
-                LDY #>NOT_OPENED
-                JSR STROUT
+                PRINT_STR NOT_OPENED_STR_ADDR
                 JMP SYNERR
                 
 UNIT_OK3:
@@ -728,13 +720,10 @@ NEND:
 ; Remove the fujiapple vector and
 ; put the original vector back
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE7
-                LDA #<NEND_STR
-                LDY #>NEND_STR
-                JSR  STROUT
-                JSR CROUT
+                PRINT_STR NEND_STR_ADDR
 NO_TRACE7:
 .ENDIF
 
@@ -747,22 +736,17 @@ NO_TRACE7:
                 CMP RELOC_FUJIAPPLE+1
                 BNE NO_RESTORE
 
-                LDA #<RESTORE_HIMEM
-                LDY #>RESTORE_HIMEM
-                JSR STROUT
+                PRINT_STR RESTORE_HIMEM_STR_ADDR
 
                 LDA OLDHIMEM
                 STA HIMEM
                 LDA OLDHIMEM+1
                 STA HIMEM+1
 
-                CLC
-                BCC RESTORE_VECT
+                JMP RESTORE_VECT
 
 NO_RESTORE:
-                LDA #<CANT_RESTORE
-                LDY #>CANT_RESTORE
-                JSR STROUT
+                PRINT_STR CANT_RESTORE_STR_ADDR
 
 .ENDIF
 
@@ -776,9 +760,7 @@ RESTORE_VECT:
                 LDA PREVECT+2
                 STA AMPVECT+2
 
-                LDA   #<EXTREMOVED
-                LDY   #>EXTREMOVED      ; LET THE USER KNOW
-                JSR   STROUT
+                PRINT_STR EXTREMOVED_STR_ADDR      ; LET THE USER KNOW
                 RTS
 
 ;*******************************************
@@ -786,13 +768,10 @@ NLIST:
 ; &NLIST
 ; Display devices
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE8
-                LDA #<NLIST_STR
-                LDY #>NLIST_STR
-                JSR  STROUT
-                JSR CROUT
+                PRINT_STR NLIST_STR_ADDR
 NO_TRACE8:                
 .ENDIF
 
@@ -800,16 +779,14 @@ NO_TRACE8:
 
                 RTS
 
-.IF USE_TRACE
+
+.IF .NOT STRIP_TRACE
 ;*******************************************
 NTRACE:
 ; &NTRACE
 ; Display debug messages
 
-                LDA #<NTRACE_STR
-                LDY #>NTRACE_STR
-                JSR STROUT
-                JSR CROUT
+                PRINT_STR NTRACE_STR_ADDR
              
                 LDA #$01
                 STA TRACE_FLAG
@@ -841,30 +818,6 @@ RELOCATE_CODE_END:
 ;***********
 ;***********
 
-;*********************
-FUJIAPPLE_VER_STR:
-                .ASCIIZ "FUJIAPPLE VERSION: YYYYMMDD.HHMM"
-
-ADJUST_HIMEM_STR:
-                .BYTE $0D, "ADJUSTING HIMEM TO: ", $00 
-
-RELOCATING:
-                .BYTE $0D, "RELOCATING TO HIMEM...", $00
-
-RESTORE_HIMEM:
-                .BYTE $0D, "RESTORING HIMEM...", $00
-
-CANT_RESTORE:
-                .BYTE $0D,"SOMETHING ELSE CHANGED HIMEM; CAN'T RESTORE ORIGINAL HIMEM.", $00
-
-EXTADDED:
-                .BYTE   $0D, "FUJINET EXTENSIONS ADDED.", $0D, $00
-
-EXTREMOVED:
-                .BYTE   $0D, "FUJINET EXTENSIONS REMOVED.", $0D, $00
-
-NOTFOUND:
-                .BYTE   $0D, "FUJINET COMMAND NOT FOUND -- FORWARDING TO NEXT AMPERSAND ROUTINE", $0D, $00
 
 ;**************************************
 
@@ -872,22 +825,22 @@ relocate000:
 RELOC_FUJIAPPLE: .WORD NSTART
 
 COMMANDS:
-NOPEN_STR:      .ASCIIZ "NOPEN"                 ; NOPEN
+                .ASCIIZ "NOPEN"                 ; NOPEN
 relocate001:    .WORD   NOPEN-1
 
                 .BYTE   'N', TOK_READ, 00       ; NREAD
 relocate002:    .WORD   NREAD-1
 
-NWRITE_STR:     .ASCIIZ "NWRITE"                ; NWRITE
+                .ASCIIZ "NWRITE"                ; NWRITE
 relocate003:    .WORD   NWRITE-1
 
-NCTRL_STR:      .ASCIIZ "NCTRL"                 ; NCTRL
+                .ASCIIZ "NCTRL"                 ; NCTRL
 relocate004:    .WORD   NCTRL-1
 
                 .BYTE   "NST", TOK_AT, "US", 0  ; NSTATUS
 relocate005:    .WORD   NSTATUS-1
 
-NCLOSE_STR:     .ASCIIZ "NCLOSE"                ; NCLOSE
+                .ASCIIZ "NCLOSE"                ; NCLOSE
 relocate006:    .WORD   NCLOSE-1
 
                 .BYTE   "N", TOK_END, 0         ; NEND
@@ -896,12 +849,12 @@ relocate007:    .WORD   NEND-1
                 .BYTE   "N", TOK_LIST, 0        ; NLIST
 relocate008:    .WORD   NLIST-1
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 .BYTE   "N", TOK_TRACE, 0       ; NTRACE
-                .WORD   NTRACE-1
+relocate009:    .WORD   NTRACE-1
 
                 .BYTE   "N",TOK_NOTRACE, 0      ; NNOTRACE
-                .WORD   NNOTRACE-1
+relocate010:    .WORD   NNOTRACE-1
 .ENDIF
 
 ;*******************************************
@@ -909,22 +862,10 @@ relocate008:    .WORD   NLIST-1
 ;*******************************************
                 .BYTE   00              ; END OF TABLE
 
-.IF USE_TRACE
-NREAD_STR:      .ASCIIZ "NREAD"
-NSTATUS_STR:    .ASCIIZ "NSTATUS"
-NEND_STR:       .ASCIIZ "NEND"
-NLIST_STR:      .ASCIIZ "NLIST"
-HIMEM_IS:       .ASCIIZ "CURRENT ADDRESS OF HIMEM: "
-RELOC_SIZE:     .BYTE   $0D
-                .ASCIIZ "RELOCATION SIZE: "
-EXITING_STR:    .ASCIIZ "EXITING..."
-
-NTRACE_STR:     .ASCIIZ "NTRACE"                
+.IF .NOT STRIP_TRACE            
 TRACE_FLAG:     .BYTE   $01
-
 .ENDIF
-SP_NOT_FOUND:   .BYTE   "NO SMARTPORT! EXTENSIONS NOT LOADED", $0D, $00
-NOT_OPENED:     .ASCIIZ "UNIT NOT OPENED!"
+RELOC_SIZE:     .BYTE   $0D
 
 PREVECT:        .RES 3                  ; JUMP TO CONTENTS OF THE PREVIOUS AMPERSAND VECTOR
 OLDHIMEM:       .RES 2                  ; VALUE OF ORIGINAL HIMEM
@@ -936,6 +877,8 @@ UNIT:           .BYTE         0
 MODE:           .BYTE         0
 TRANSLATION:    .BYTE         0
 URL:            .RES          255
+relocate011:
+URL_ADDR:       .WORD         URL
 URL_LEN:        .BYTE         0
 COMMAND:        .BYTE         0
 PAYLOAD:        .RES          255
@@ -946,10 +889,12 @@ BUF:            .RES          255      ; GENERIC BUFFER FOR READ/WRITE
 BUFLEN:         .BYTE         0
 STRADDR:        .WORD         0
 STRBUF:         .RES          255
+relocate012:
+STRBUF_ADDR:    .WORD         STRBUF_ADDR
 STRLEN:         .BYTE         0
 NETWORK:        .BYTE         $FF, $FF, $FF, $FF
 
-
+.include "STRINGS.S"
 
 RELOCATE_DATA_END:
 
@@ -959,14 +904,14 @@ RELOCATE_DATA_END:
 .include "RELOCATION.S" 
 
 RELOCATION_TABLE:
-		.WORD 	relocate000+1,relocate001+1,relocate002,relocate003,relocate004,relocate005,relocate006,relocate007;,relocate008,relocate009
+		.WORD 	relocate000+1,relocate001+1,relocate002,relocate003,relocate004,relocate005,relocate006,relocate007,relocate008,relocate009
+		.WORD 	relocate010,relocate011,relocate012;,relocate013,relocate014,relocate015,relocate016,relocate017,relocate018,relocate019
+;		.WORD   relocate020,relocate021,relocate022,relocate023,relocate024,relocate025,relocate026,relocate027,relocate028,relocate029
 
-;		.WORD 	relocate010+1,relocate011+1,relocate012+1,relocate013+1,relocate014+1,relocate015+1,relocate016+1,relocate017+1,relocate018+1,relocate019+1
-;		.WORD   relocate020+1,relocate021+1,relocate022+1
+.include "STR_RELOC.S"
 
 END_RELOCATION_TABLE:	
                 .WORD 	0 ; end of table
-		.RES	1024
 
 ; We should generate an error if there are too many entries (greater than 255)
 

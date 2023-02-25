@@ -29,23 +29,12 @@ FN_ERR_MEMORY_ERROR     = 255	    ;Could not allocate either receive or transmit
 
 ; X = DEVICE
 
-.IF USE_TRACE
-
-FIND_NETWORK_STR:    .BYTE "FIND_NETWORK"    , $0D, $00
-FN_BYTES_WAITING_STR:.BYTE "FN_BYTES_WAITING", $0D, $00
-FN_IS_CONNECTED_STR: .BYTE "FN_IS_CONNECTED" , $0D, $00
-FN_OPEN_STR:         .BYTE "FN_OPEN"         , $0D, $00
-FN_CLOSE_STR:        .BYTE "FN_CLOSE"        , $0D, $00
-CPY_URL_TO_PLAYLOAD_STR: .BYTE "CPY_URL_TO_PAYLOAD", $0D, $00
-URL_STR:             .ASCIIZ "URL: "
-
-.ENDIF
 
 
 CPY_URL_TO_PAYLOAD:
 
-                LDA #<URL
-                LDY #>URL
+                LDA URL_ADDR+1
+                LDY URL_ADDR
                 
 CPY_STR_TO_PAYLOAD:
                 STA ZP1_LO
@@ -73,13 +62,11 @@ GOT_LENGTH2:
 
 FN_OPEN:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE20
-                LDA #<FN_OPEN_STR
-                LDY #>FN_OPEN_STR
-                JSR STROUT
+                PRINT_STR FN_OPEN_STR_ADDR
 NO_TRACE20:                
                 RESTORE_REGS
 .ENDIF
@@ -105,13 +92,15 @@ NO_TRACE20:
                 STA PAYLOAD+3
 
                 JSR CPY_URL_TO_PAYLOAD  ; TRANSFER THE URL
-.IF USE_TRACE
+
+.IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE21
                 JSR PRINT_SP_PAYLOAD    ; PRINT THE URL
                 JSR CROUT
 NO_TRACE21:                
 .ENDIF
+
                 PLA                     ; GET BACK OUR DEVICE NUMBER
                 TAX
                 LDY #'O'                ; SEND 'O' TO FUJINET
@@ -122,13 +111,11 @@ NO_TRACE21:
 
 FN_CLOSE:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE22
-                LDA #<FN_CLOSE_STR
-                LDY #>FN_CLOSE_STR
-                JSR STROUT
+                PRINT_STR FN_CLOSE_STR_ADDR
 NO_TRACE22:                
                 RESTORE_REGS
 .ENDIF
@@ -152,15 +139,15 @@ NO_TRACE22:
 ; X = DEVICE
 FN_IS_CONNECTED:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE23
-                LDA #<FN_IS_CONNECTED_STR
-                LDY #>FN_IS_CONNECTED_STR
-                JSR STROUT
+                PRINT_STR FN_IS_CONNECTED_STR_ADDR
 NO_TRACE23:                
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 LDY #'S'
@@ -173,17 +160,16 @@ NO_TRACE23:
 ; X = DEVICE 
 FN_BYTES_WAITING:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE24
-                LDA #<FN_BYTES_WAITING_STR
-                LDY #>FN_BYTES_WAITING_STR
-                JSR STROUT
+                PRINT_STR FN_BYTES_WAITING_STR_ADDR
 NO_TRACE24:                
                 RESTORE_REGS
 .ENDIF
-
+.ENDIF
                 LDY #'S'
                 JSR SP_STATUS
                 LDA SP_PAYLOAD
@@ -193,19 +179,19 @@ NO_TRACE24:
 ; X=DEVICE
 FIND_NETWORK:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE25
-                LDA #<FIND_NETWORK_STR
-                LDY #>FIND_NETWORK_STR
-                JSR STROUT
+                PRINT_STR FIND_NETWORK_STR_ADDR
 NO_TRACE25:                
                 RESTORE_REGS
 .ENDIF
+.ENDIF
 
-                LDA #<NETWORK_STR
-                LDY #>NETWORK_STR
+                LDA NETWORK_STR_ADDR+1
+                LDY NETWORK_STR_ADDR
                 JSR SP_FIND_DEVICE
 
                 RTS

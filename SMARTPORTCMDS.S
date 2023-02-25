@@ -90,20 +90,6 @@ SLOT_ADDR		=	ZP2
 SLOT_ADDR_LO	    	=	ZP2_LO
 SLOT_ADDR_HI		=	ZP2_HI
 
-.IF USE_TRACE
-
-FIND_SMARTPORT_SLOT_STR: .BYTE "FIND_SMARTPORT_SLOT", $0D, $00
-GET_SMARTPORT_DISPATCH_ADDRESS_STR: .BYTE "GET_SMARTPORT_DISPATCH_ADDRESS", $0D, $00
-DISPATCHER_ADDRESS_STR:  .ASCIIZ "DISPATCHER ADDRESS:" 
-SP_OPEN_STR:             .BYTE "SP_OPEN",    $0D, $00
-SP_CLOSE_STR:            .BYTE "SP_CLOSE",   $0D, $00
-SP_CONTROL_STR:          .BYTE "SP_CONTROL", $00
-SP_STATUS_STR:           .BYTE "SP_STATUS",  $0D, $00
-CALL_DISPATCHER_STR:     .BYTE "CALL_DISPATCHER",   $0D, $00
-DISPLAY_SP_STATUS_STR:   .BYTE "DISPLAY_SP_STATUS", $0D, $00
-SP_FIND_DEVICE_STR:      .BYTE "SP_FIND_DEVICE",    $0D, $00
-REAL_STR:                .BYTE "REAL SMARTPORT", $0D, $00
-.ENDIF
 
 
 .IF USE_SP
@@ -119,18 +105,17 @@ REAL_STR:                .BYTE "REAL SMARTPORT", $0D, $00
 ;**********************************
 FIND_SMARTPORT_SLOT:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE10
 
-                LDA #<REAL_STR
-                LDY #>REAL_STR
-                JSR STROUT
-                JSR CROUT
-                LDA #<FIND_SMARTPORT_SLOT_STR
-                LDY #>FIND_SMARTPORT_SLOT_STR
-                JSR STROUT
+.IF EXT_TRACE
+                PRINT_STR REAL_STR_ADDR
+.ENDIF
+
+                PRINT_STR FIND_SMARTPORT_SLOT_STR_ADDR
+
  NO_TRACE10:               
                 RESTORE_REGS
 .ENDIF
@@ -167,7 +152,7 @@ NEXT_SLOT:
 
 FOUND:
                 TXA                    
-                CLC                     ; WE FOUND IT! X = SLOT ADDRESS 
+                CLC
                 BCC SLOT_FIND_DONE
 
 NOT_FOUND:
@@ -177,7 +162,7 @@ NOT_FOUND:
 
 SLOT_FIND_DONE:
 
-.IF USE_TRACE        
+.IF .NOT STRIP_TRACE    
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE28
@@ -187,7 +172,7 @@ SLOT_FIND_DONE:
                 JSR CROUT
  NO_TRACE28:               
                 RESTORE_REGS  
-.ENDIF 
+.ENDIF
 
                 RTS
         
@@ -211,13 +196,11 @@ SMARTPORT_ID:   .BYTE $20, $00, $03, $00
 ;**********************************
 GET_SMARTPORT_DISPATCH_ADDRESS:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE11
-                LDA #<GET_SMARTPORT_DISPATCH_ADDRESS_STR
-                LDY #>GET_SMARTPORT_DISPATCH_ADDRESS_STR
-                JSR STROUT
+                PRINT_STR GET_SMARTPORT_DISPATCH_ADDRESS_STR_ADDR
 NO_TRACE11:                
                 RESTORE_REGS
 .ENDIF
@@ -260,17 +243,14 @@ NO_DISPATCHER:
                 STX DISPATCHER_ADDR_LO
 DONE:        
 
-.IF USE_TRACE
                 SAVE_REGS
-                LDA #<DISPATCHER_ADDRESS_STR
-                LDY #>DISPATCHER_ADDRESS_STR
-                JSR STROUT
+                PRINT_STR DISPATCHER_ADDRESS_STR_ADDR
+
                 LDA DISPATCHER_ADDR_HI
                 LDX DISPATCHER_ADDR_LO
                 JSR PRTAX
                 JSR CROUT
                 RESTORE_REGS
-.ENDIF
 
                 LDA DISPATCHER_ADDR_HI  ; PUT ADDRESS IN A AND X
                 LDX DISPATCHER_ADDR_LO
@@ -294,13 +274,11 @@ DONE:
 ;******************************************************************
 SP_OPEN:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE12
-                LDA #<SP_OPEN_STR
-                LDY #>SP_OPEN_STR
-                JSR STROUT
+                PRINT_STR SP_OPEN_STR_ADDR
 
                 JSR PRINT_SP_PAYLOAD
                 JSR CROUT
@@ -321,9 +299,7 @@ relocatesp01:   .WORD CMD_LIST
                 BCC SP_OPEN_DONE
 OPEN_ERROR:
                 PHA
-                LDA #<SP_ERROR
-                LDY #>SP_ERROR
-                JSR STROUT
+                PRINT_STR SP_ERROR_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
@@ -346,13 +322,11 @@ SP_OPEN_DONE:
 ;******************************************************************
 SP_CLOSE:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE13
-                LDA #<SP_CLOSE_STR
-                LDY #>SP_CLOSE_STR
-                JSR STROUT
+                PRINT_STR SP_CLOSE_STR_ADDR
 NO_TRACE13:                
                 RESTORE_REGS
 .ENDIF
@@ -370,10 +344,8 @@ relocatesp02:   .WORD CMD_LIST
                 BCC SP_CLOSE_DONE
 CLOSE_ERROR:
                 PHA
-                LDA #<SP_ERROR
-                LDY #>SP_ERROR
-                JSR STROUT
-                JSR CROUT
+                PRINT_STR SP_ERROR_STR_ADDR
+
                 PLA
                 TAX
                 JSR PRTX
@@ -426,14 +398,12 @@ SP_CLOSE_DONE:
 SP_CONTROL:
                 STY CMD_LIST+4
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE14
 
-                LDA #<SP_CONTROL_STR
-                LDY #>SP_CONTROL_STR
-                JSR STROUT
+                PRINT_STR SP_CONTROL_STR_ADDR
 
                 LDA #'['
                 JSR COUT
@@ -461,9 +431,7 @@ relocatesp03:   .WORD CMD_LIST
                 BCC SP_CTRL_DONE
 CTRL_ERROR:
                 PHA
-                LDA #<SP_ERROR
-                LDY #>SP_ERROR
-                JSR STROUT
+                PRINT_STR SP_ERROR_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
@@ -545,13 +513,11 @@ SP_CTRL_DONE:
 ;******************************************************************
 SP_STATUS:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE15
-                LDA #<SP_STATUS_STR
-                LDY #>SP_STATUS_STR
-                JSR STROUT
+                PRINT_STR SP_STATUS_STR_ADDR
 NO_TRACE15:                
                 RESTORE_REGS
 .ENDIF
@@ -572,9 +538,7 @@ relocatesp04:   .WORD CMD_LIST
                 BCC SP_STATUS_DONE
 ERROR:
                 PHA
-                LDA #<SP_ERROR
-                LDY #>SP_ERROR
-                JSR STROUT
+                PRINT_STR SP_ERROR_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
@@ -598,27 +562,18 @@ SP_STATUS_DONE:
 ;**********************************
 CALL_DISPATCHER:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE16
-                LDA #<CALL_DISPATCHER_STR
-                LDY #>CALL_DISPATCHER_STR
-                JSR STROUT
+                PRINT_STR CALL_DISPATCHER_STR_ADDR
 NO_TRACE16:                
                 RESTORE_REGS
 .ENDIF
+
                 JMP (SMARTPORT_DISPATCHER)
 
 
-VENDER_STR:             .ASCIIZ "VENDER ID: "
-
-VENDER_VERSION_STR:     .ASCIIZ "VENDER VERSION: "
-
-COUNT_STR:              .ASCIIZ "DEVICE COUNT: "
-
-SP_ERROR:               .ASCIIZ "SMARTPORT ERROR: "
-SP_SUCCESS:             .ASCIIZ "SMARTPORT SUCCESS:  "
 
 ;*******************************
 ; DISPLAY_SP_STATUS
@@ -627,40 +582,32 @@ SP_SUCCESS:             .ASCIIZ "SMARTPORT SUCCESS:  "
 ;**********************************
 DISPLAY_SP_STATUS:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE17
-                LDA #<DISPLAY_SP_STATUS_STR
-                LDY #>DISPLAY_SP_STATUS_STR
-                JSR STROUT
+                PRINT_STR DISPLAY_SP_STATUS_STR_ADDR
 NO_TRACE17:                
                 RESTORE_REGS
 .ENDIF
 
-                LDX #$00                ; SMARTPORT DEVICE ZERO
+                LDX #$00                                ; SMARTPORT DEVICE ZERO
                 LDY #$00
                 JSR SP_STATUS
-                LDX DCOUNT
+                LDX DCOUNT                              ; DCOUNT = NUMBER OF DEVICES
 
-                LDA #<COUNT_STR         ; "DEVICE COUNT:"
-                LDY #>COUNT_STR
-                JSR STROUT
+                PRINT_STR COUNT_STR_ADDR
                 LDX DCOUNT
                 JSR PRTX
                 JSR CROUT
 
-                LDA #<VENDER_STR        ; "VENDER ID:"
-                LDY #>VENDER_STR
-                JSR STROUT
+                PRINT_STR VENDER_STR_ADDR
                 LDA MANUFACTURER
                 LDX MANUFACTURER+1
                 JSR PRTAX
                 JSR CROUT
 
-                LDA #<VENDER_VERSION_STR       ; "VERSION:"
-                LDY #>VENDER_VERSION_STR
-                JSR STROUT
+                PRINT_STR VENDER_VERSION_STR_ADDR
                 LDA INTERFACEVER
                 LDX INTERFACEVER+1
                 JSR PRTAX
@@ -670,9 +617,6 @@ NO_TRACE17:
 
 
 
-DEV_LIST_STR:   .ASCIIZ " SMARTPORT DEVICE LIST "
-UNIT_STR:       .ASCIIZ "UNIT #"
-NAME_STR:       .ASCIIZ " NAME: "
 
 NUM_DEVICES:    .BYTE $00
 
@@ -704,8 +648,8 @@ PRINTI_STOP:
 ;**********************************
 DISPLAY_SP_DEVICES:
 
-                LDA #<DEV_LIST_STR
-                LDY #>DEV_LIST_STR
+                LDA DEV_LIST_STR_ADDR
+                LDY DEV_LIST_STR_ADDR+1
                 JSR ISTROUT
                 JSR CROUT
                 JSR CROUT
@@ -723,18 +667,14 @@ NEXT_DEV:
                 TXA
                 PHA
 
-                LDA #<UNIT_STR
-                LDY #>UNIT_STR
-                JSR STROUT
+                PRINT_STR UNIT_STR_ADDR
 
                 PLA                     ; GET BACK OUR VALUE OF 
                 PHA                     ; X WE STORED ON THE STACK
                 TAX
                 JSR PRTX
                 
-                LDA #<NAME_STR
-                LDY #>NAME_STR
-                JSR STROUT
+                PRINT_STR NAME_STR_ADDR
 
                 PLA                     ; ONCE AGAIN, GET OUR VALUE OF X
                 PHA
@@ -758,9 +698,7 @@ NEXT_DEV:
 DISPLAY_ERROR_OUT:
                 JSR PRTX
 
-                LDA #<UNIT_STR
-                LDY #>UNIT_STR
-                JSR STROUT
+                PRINT_STR UNIT_STR_ADDR
 
                 PLA
                 TAX
@@ -768,8 +706,7 @@ DISPLAY_ERROR_OUT:
 
                 RTS
 
-FUJI_DISK_0_STR:        .ASCIIZ "FUJINET_DISK_0"
-NETWORK_STR:            .ASCIIZ "NETWORK"
+
 
 FIND_DEVICE_STR:        .RES 255
 FIND_DEVICE_STR_LEN:    .BYTE 0
@@ -812,13 +749,11 @@ PPAYLOAD:
 ;*********************************
 SP_FIND_DEVICE:
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE18
-                LDA #<SP_FIND_DEVICE_STR
-                LDY #>SP_FIND_DEVICE_STR
-                JSR STROUT
+                PRINT_STR SP_FIND_DEVICE_STR_ADDR
 NO_TRACE18:                
                 RESTORE_REGS
 .ENDIF
@@ -840,16 +775,15 @@ LOOK_FOR_NULL:
 GOT_LENGTH:     
                 STX FIND_DEVICE_STR_LEN         ; LENGTH INCLUDES NULL
 
-.IF USE_TRACE
+.IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE19
-                LDA #<FIND_DEVICE_STR
-                LDY #>FIND_DEVICE_STR
+                LDA FIND_DEVICE_STR_ADDR+1
+                LDY FIND_DEVICE_STR_ADDR
                 JSR CROUT
 NO_TRACE19:                
                 RESTORE_REGS
-
 .ENDIF
 
                 LDX #$00
