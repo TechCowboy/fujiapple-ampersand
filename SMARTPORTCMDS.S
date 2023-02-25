@@ -246,13 +246,14 @@ DONE:
 .IF .NOT STRIP_TRACE
                 SAVE_REGS
                 PRINT_STR DISPATCHER_ADDRESS_STR_ADDR
-.ENDIF
+
 
                 LDA DISPATCHER_ADDR_HI
                 LDX DISPATCHER_ADDR_LO
                 JSR PRTAX
                 JSR CROUT
                 RESTORE_REGS
+.ENDIF
 
                 LDA DISPATCHER_ADDR_HI  ; PUT ADDRESS IN A AND X
                 LDX DISPATCHER_ADDR_LO

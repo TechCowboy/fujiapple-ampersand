@@ -30,8 +30,8 @@
 ;    ]
 ;}
 
-STRIP_TRACE= 0  ; Eliminate all tracing code and strings
-EXT_TRACE  = 1  ; Extended Trace, 1=display more internal debug messages 
+STRIP_TRACE= 1  ; Eliminate all tracing code and strings
+EXT_TRACE  = 0  ; Extended Trace, 1=display more internal debug messages 
 RELOCATE   = 1  ; 1=relocate himem and put our code there
 PRODOS     = 1  ; 0=add dos 3.3 header
 APPLEII    = 1  ; always set to one, EQUs will be for apple zero page
@@ -98,13 +98,9 @@ NINIT:
                 LDY #>SP_NOT_FOUND_STR
                 JSR STROUT
 
-.IF .NOT STRIP_TRACE
-.IF EXT_TRACE
                 LDA #<EXITING_STR
                 LDY #>EXITING_STR
                 JSR STROUT
-.ENDIF
-.ENDIF
                 RTS
 
 

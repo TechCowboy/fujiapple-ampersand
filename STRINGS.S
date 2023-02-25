@@ -2,6 +2,7 @@
 ; WON'T BE USED AFTERWARDS SO DON'T NEED TO BE RELOCATED
 EXTADDED_STR:                               .BYTE   $0D, "FUJINET EXTENSIONS ADDED.", $0D, $00
 SP_NOT_FOUND_STR:                           .BYTE   "NO SMARTPORT! EXTENSIONS NOT LOADED", $0D, $00
+EXITING_STR:                                .BYTE   "EXITING...", $0D, $00
 
 
 .IF .NOT STRIP_TRACE
@@ -10,7 +11,6 @@ SP_NOT_FOUND_STR:                           .BYTE   "NO SMARTPORT! EXTENSIONS NO
 
 HIMEM_IS_STR:                               .ASCIIZ "CURRENT ADDRESS OF HIMEM: "
 RELOC_SIZE_STR:                             .ASCIIZ "RELOCATION SIZE: "
-EXITING_STR:                                .BYTE   "EXITING...", $0D, $00
 FUJIAPPLE_VER_STR:                          .BYTE   "FUJIAPPLE VERSION: YYYYMMDD.HHMM", $00, $0D
 ADJUST_HIMEM_STR:                           .BYTE   $0D, "ADJUSTING HIMEM TO: ", $00 
 RELOCATING:                                 .BYTE   $0D, "RELOCATING TO HIMEM...", $00
