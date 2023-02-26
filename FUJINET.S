@@ -84,15 +84,15 @@ NO_TRACE20:
                 BCS OPEN_ERR
 
                 LDY #$02                    ; PAYLOAD SIZE = $102 = 258 BYTES
-                STY PAYLOAD
+                STY SP_PAYLOAD
                 DEY
-                STY PAYLOAD+1
+                STY SP_PAYLOAD+1
        
                 LDA MODE                    ; READ OR WRITE OR BOTH
-                STA PAYLOAD+2
+                STA SP_PAYLOAD+2
                 
                 LDA TRANSLATION             ; CHARACTER TRANSLATION
-                STA PAYLOAD+3
+                STA SP_PAYLOAD+3
 
                 JSR CPY_URL_TO_SP_PAYLOAD   ; TRANSFER THE URL
 
@@ -149,8 +149,8 @@ NO_TRACE22:
                 JSR SP_CLOSE
                 
                 LDY #$00                ; PAYLOAD SIZE = $102 = 258 BYTES
-                STY PAYLOAD
-                STY PAYLOAD+1
+                STY SP_PAYLOAD
+                STY SP_PAYLOAD+1
                 
                 PLA                     ; GET BACK OUR DEVICE NUMBER
                 TAX
@@ -183,7 +183,7 @@ NO_TRACE23:
 
                 LDY #'S'
                 JSR SP_STATUS
-                LDA PAYLOAD+2
+                LDA SP_PAYLOAD+2
                 AND #$02
                 ROR
                 RTS
@@ -225,7 +225,6 @@ NO_TRACE24:
 FN_FIND_NETWORK:
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE25
@@ -233,11 +232,13 @@ FN_FIND_NETWORK:
 NO_TRACE25:                
                 RESTORE_REGS
 .ENDIF
-.ENDIF
 
                 LDA NETWORK_STR_ADDR+1
                 LDY NETWORK_STR_ADDR
             
                 JSR SP_FIND_DEVICE
 
+.IF .NOT STRIP_TRACE
+                JSR PRINT_REGS
+.ENDIF
                 RTS

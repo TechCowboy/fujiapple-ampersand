@@ -30,6 +30,14 @@
 ;    ]
 ;}
 
+; If you don't set STRIP_TRACE=1, then &NTRACE and &NNOTRACE
+; keywords are active and a bunch of strings are included
+; in the code making it quite large.
+; These keywords show information regarding the BASIC and
+; FN_???? functions being called.
+;
+; EXT_TRACE includes calls into the SMARTPORT routines
+
 STRIP_TRACE= 0  ; Eliminate all tracing code and strings
 EXT_TRACE  = 0  ; Extended Trace, 1=display SMARTPORT internal debug messages 
 RELOCATE   = 0  ; 1=relocate himem and put our code there
@@ -37,7 +45,11 @@ PRODOS     = 1  ; 0=add dos 3.3 header
 APPLEII    = 1  ; always set to one, EQUs will be for apple zero page
 USE_SP     = 1  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
 
+SMALL_TEST = 1  ; Test only one small portion of FujiNet
 START      = $4000
+
+
+
 
 .IF PRODOS
 
@@ -77,6 +89,30 @@ TOK_NOTRACE             =       156       ; APPLESOFT TOKEN FOR NOTRACE
 STARTOFFILE:
 
 NINIT:
+
+.IF SMALL_TEST
+
+        LDA #<FUJIAPPLE_VER_STR                 ; "VERSON: YYYYMMDD.HHMM" - FILLED BY PYTHON SCRIPT
+        LDY #>FUJIAPPLE_VER_STR
+        JSR  STROUT
+
+        LDA #<TEST_STR
+        LDY #>TEST_STR
+        JSR STROUT
+
+        JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
+        
+        LDX #$01
+        JSR FN_OPEN
+        JSR PRINT_REGS
+        RTS
+
+TEST_STR:    
+        .BYTE "SMALL TEST MODE", $0D,$00
+
+.ENDIF
+
+
                 LDA CIDERPRESS_CORRUPTION_TEST
                 CMP #$0A
                 BEQ NOT_CORRUPTED
@@ -694,7 +730,7 @@ STORE3:
                 LDY   DSCTMP
 CPY2BUF:
                 LDA   (DSCTMP+1),Y
-                STA   PAYLOAD,Y
+                STA   BASIC_PAYLOAD,Y
                 DEY
                 BPL   CPY2BUF
 ;*
@@ -709,7 +745,7 @@ CPY2BUF:
 UNIT_OK4:
 ;****** TO DO *******
 ; UNIT, COMMAND ARE STORED
-; AND PAYLOAD$ IS IN PAYLOAD
+; AND PAYLOAD$ IS IN BASIC_PAYLOAD
 ; CALL FUJINET
 ;*******************
                 RTS
@@ -942,7 +978,7 @@ relocate009:
 URL_ADDR:       .WORD         URL
 URL_LEN:        .BYTE         0
 COMMAND:        .BYTE         0
-PAYLOAD:        .RES          255
+BASIC_PAYLOAD:  .RES          255
 BW:             .WORD         0        ; BYTES WAITING
 CONNECT:        .BYTE         0
 NERR:           .BYTE         0

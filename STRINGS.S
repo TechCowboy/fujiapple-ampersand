@@ -6,7 +6,6 @@
 
 CIDERPRESS_CORRUPTION_TEST:                 .BYTE $0A, "CIDERPRESS CORRUPTED FILE", $00
 
-
 EXTADDED_STR:                               .BYTE   $0D, "FUJINET EXTENSIONS ADDED.", $0D, $00
 SP_NOT_FOUND_STR:                           .BYTE   "NO SMARTPORT! EXTENSIONS NOT LOADED", $0D, $00
 EXITING_STR:                                .BYTE   "EXITING...", $0D, $00
@@ -18,7 +17,7 @@ EXITING_STR:                                .BYTE   "EXITING...", $0D, $00
 
 HIMEM_IS_STR:                               .ASCIIZ "OLD HIMEM: "
 RELOC_SIZE_STR:                             .ASCIIZ "RELOCATION SIZE: "
-FUJIAPPLE_VER_STR:                          .BYTE   "FUJIAPPLE VERSION: YYYYMMDD.HHMM", $00, $0D
+FUJIAPPLE_VER_STR:                          .BYTE   "FUJIAPPLE VERSION: YYYYMMDD.HHMM", $0D, $00
 RELOCATING_STR:                             .BYTE   $0D, "NEW HIMEM: ", $00
 
 .ENDIF

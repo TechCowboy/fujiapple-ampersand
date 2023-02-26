@@ -4,7 +4,7 @@ import time
 from subprocess import Popen, PIPE
 
 filename   = [ "FUJIAPPLE"]
-pconvert   = [ 0x2000 ]
+pconvert   = [ 0x4000 ]
 pfilenames = [ "FUJIAPPLE"  ]
 pfilenamed = [ "FUJIAPPLE" ]
 dosdisk   = "FUJIAPPLE.dsk"
@@ -331,9 +331,15 @@ if __name__ == "__main__":
     
     print("Copy to TNFS server...")
 
-    os.system("cp "+prodisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple")
-    os.system("cp "+dosdisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple")
+    cmd = "cp "+prodisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple"
+    print(cmd)
+    os.system(cmd)
+    
+    if do_dos:
+        cmd = "cp "+dosdisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple"
+        print(cmd)
+        os.system(cmd)
 
 
-    print("STOPPED.")
+    print("Completed.")
 
