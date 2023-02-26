@@ -2,6 +2,7 @@ import pyautogui as p
 import os
 import time
 from subprocess import Popen, PIPE
+import datetime
 
 filename   = [ "FUJIAPPLE"]
 pconvert   = [ 0x4000 ]
@@ -308,10 +309,30 @@ def convert_dos_bin_to_prodos(src, tgt):
     
     return address
 
+def update_version(file, version_signature, new_version):
+    
+    fp = open(file, "rb")
+    contents=fp.read()
+    fp.close()
+    
+    content = bytearray(contents)
+    
+    version_signature = bytearray(version_signature.encode("ascii"))
+    new_version = bytearray(new_version.encode("ascii"))
+    position = contents.find(version_signature)
 
+    if position > 0:
+        for i in range(len(new_version)):
+            content[position+i] = new_version[i]
+            
+    
+    fp = open(file, "wb")
+    fp.write(content)
+    fp.close()
 if __name__ == "__main__":
     
     do_dos = False
+    
     
     if do_dos:
         quit_program = False
@@ -321,7 +342,15 @@ if __name__ == "__main__":
     else:
         start_program = True
     
+    version_signature = "YYYYMMDD.HHMM"
+    now = datetime.datetime.now()
+    new_version = now.strftime('%Y%m%d.%H%M')
+    print(f"New version: {new_version}")
+    
+        
     for i in range(len(pfilenames)):
+        
+        update_version(pfilenames[i], version_signature, new_version)
         address = pconvert[i]
         if address == 0:
             address = convert_dos_bin_to_prodos(pfilenames[i], pfilenamed[i])

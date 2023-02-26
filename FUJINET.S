@@ -30,7 +30,19 @@ FN_ERR_CONNECTION_ABORTED = 211	    ;Connection Aborted
 FN_ERR_BAD_CREDENTIALS  = 212	    ;Invalid Username or Password (debating whether to overload as access denied.)
 FN_ERR_MEMORY_ERROR     = 255	    ;Could not allocate either receive or transmit buffers.
 
-; X = DEVICE
+;******************************************************************
+; CPY_URL_TO_SP_PAYLOAD
+; Copy the BASIC URL into the Smartport buffer
+;
+; CPY_STR_TO_SP_PAYLOAD
+; Copy the zero terminated string to the Smartport buffer
+;
+; INPUT
+;  A = high address
+;  Y = low address
+; RETURNS
+;  X = String length
+;******************************************************************
 
 CPY_URL_TO_SP_PAYLOAD:
 
@@ -45,7 +57,7 @@ CPY_STR_TO_SP_PAYLOAD:
                 LDY #$00
 LOOK_FOR_NULL2:
                 LDA (ZP1),Y
-                STA SP_PAYLOAD+5,X 
+                STA SP_PAYLOAD+4,X 
                 BEQ GOT_LENGTH2
                 INY
                 INX
@@ -54,9 +66,8 @@ LOOK_FOR_NULL2:
 
 GOT_LENGTH2:
                 INX
-                STX SP_PAYLOAD+4
                 LDA #$00
-                STA SP_PAYLOAD+5,X
+                STA SP_PAYLOAD+4,X
 
                 RTS
 
@@ -73,19 +84,36 @@ FN_OPEN:
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE20
+                TXA
+                PHA
                 PRINT_STR FN_OPEN_STR_ADDR
+                LDA #' '
+                JSR COUT
+                PRINT_STR UNIT_STR_ADDR
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
+
 NO_TRACE20:                
                 RESTORE_REGS
 .ENDIF
 
                 TXA                         ; X CONTAINS THE UNIT NUMBER
                 PHA
-                JSR SP_OPEN
+
+                ; OPEN THE DEVICE #X
+                JSR SP_OPEN 
                 BCS OPEN_ERR
 
+                PLA                         ; GET BACK UNIT NUMBER
+                PHA
+                TAX
+
+                ; CONNECT TO URL
                 LDY #$02                    ; PAYLOAD SIZE = $102 = 258 BYTES
                 STY SP_PAYLOAD
-                DEY
+                LDY #$01
                 STY SP_PAYLOAD+1
        
                 LDA MODE                    ; READ OR WRITE OR BOTH
@@ -96,31 +124,46 @@ NO_TRACE20:
 
                 JSR CPY_URL_TO_SP_PAYLOAD   ; TRANSFER THE URL
 
+                PLA                         ; GET BACK OUR DEVICE NUMBER
+                TAX
+                LDY #'O'                    ; SEND 'O' TO FUJINET
+                JSR SP_CONTROL
+                BCS CTRL_ERR
+
 .IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE21
 
+                PRINT_STR MODE_STR_ADDR
                 LDX MODE
                 JSR PRINT_X
 
+                PRINT_STR TRANS_STR_ADDR
                 LDX TRANSLATION
                 JSR PRINT_X
-                JSR CROUT
-
+                
+                PRINT_STR PAYLOAD_STR_ADDR
                 JSR PRINT_SP_PAYLOAD    ; PRINT THE URL
                 JSR CROUT
 NO_TRACE21:              
                 RESTORE_REGS
 .ENDIF
 
-                PLA                     ; GET BACK OUR DEVICE NUMBER
-                TAX
-                LDY #'O'                ; SEND 'O' TO FUJINET
-                JSR SP_CONTROL
 
                 RTS
+CTRL_ERR:
+                LDA #<CTRL_ERR_STR
+                LDY #>CTRL_ERR_STR
+                CLC
+                BCC OPEN_ERR_DONE
 OPEN_ERR:
+                LDA #<OPEN_ERR_STR
+                LDY #>OPEN_ERR_STR
+
+OPEN_ERR_DONE:
+                JSR STROUT
+                JSR CROUT
                 PLA
                 SEC
                 LDX #FN_ERR_NETWORK_DOWN
@@ -139,7 +182,16 @@ FN_CLOSE:
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE22
+                TXA
+                PHA
                 PRINT_STR FN_CLOSE_STR_ADDR
+                LDA #' '
+                JSR COUT
+                PRINT_STR UNIT_STR_ADDR
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
 NO_TRACE22:                
                 RESTORE_REGS
 .ENDIF
@@ -175,7 +227,16 @@ FN_IS_CONNECTED:
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE23
+                TXA
+                PHA
                 PRINT_STR FN_IS_CONNECTED_STR_ADDR
+                JSR COUT
+                PRINT_STR UNIT_STR_ADDR
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
+
 NO_TRACE23:                
                 RESTORE_REGS
 .ENDIF
@@ -202,7 +263,16 @@ FN_BYTES_WAITING:
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE24
+                TXA
+                PHA
                 PRINT_STR FN_BYTES_WAITING_STR_ADDR
+                JSR COUT
+                PRINT_STR UNIT_STR_ADDR
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
+
 NO_TRACE24:                
                 RESTORE_REGS
 .ENDIF
@@ -228,7 +298,7 @@ FN_FIND_NETWORK:
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE25
-                PRINT_STR FIND_NETWORK_STR_ADDR
+                PRINT_STR FN_FIND_NETWORK_STR_ADDR
 NO_TRACE25:                
                 RESTORE_REGS
 .ENDIF
@@ -238,7 +308,4 @@ NO_TRACE25:
             
                 JSR SP_FIND_DEVICE
 
-.IF .NOT STRIP_TRACE
-                JSR PRINT_REGS
-.ENDIF
                 RTS

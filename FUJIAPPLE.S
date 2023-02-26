@@ -39,7 +39,8 @@
 ; EXT_TRACE includes calls into the SMARTPORT routines
 
 STRIP_TRACE= 0  ; Eliminate all tracing code and strings
-EXT_TRACE  = 0  ; Extended Trace, 1=display SMARTPORT internal debug messages 
+EXT_TRACE  = 1  ; Extended Trace, 1=display some SMARTPORT internal debug messages 
+EXT2_TRACE = 0  ; Extended Trace 2, display SP_STATUS and CALL_DISPATCHER
 RELOCATE   = 0  ; 1=relocate himem and put our code there
 PRODOS     = 1  ; 0=add dos 3.3 header
 APPLEII    = 1  ; always set to one, EQUs will be for apple zero page
@@ -47,8 +48,6 @@ USE_SP     = 1  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
 
 SMALL_TEST = 1  ; Test only one small portion of FujiNet
 START      = $4000
-
-
 
 
 .IF PRODOS
@@ -92,6 +91,7 @@ NINIT:
 
 .IF SMALL_TEST
 
+
         LDA #<FUJIAPPLE_VER_STR                 ; "VERSON: YYYYMMDD.HHMM" - FILLED BY PYTHON SCRIPT
         LDY #>FUJIAPPLE_VER_STR
         JSR  STROUT
@@ -102,7 +102,7 @@ NINIT:
 
         JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
         
-        LDX #$01
+        JSR FN_FIND_NETWORK
         JSR FN_OPEN
         JSR PRINT_REGS
         RTS
@@ -1002,7 +1002,7 @@ RELOCATE_DATA_END:
 
 RELOCATION_TABLE:
 		.WORD 	relocate000+1,relocate001+1,relocate002,relocate003,relocate004,relocate005,relocate006,relocate007,relocate008,relocate009
-		.WORD 	relocate010;,relocate011,relocate012,relocate013,relocate014,relocate015,relocate016,relocate017,relocate018,relocate019
+		.WORD 	relocate010,relocate011;,relocate012,relocate013,relocate014,relocate015,relocate016,relocate017,relocate018,relocate019
 ;		.WORD   relocate020,relocate021,relocate022,relocate023,relocate024,relocate025,relocate026,relocate027,relocate028,relocate029
 
 .include "STR_RELOC.S"

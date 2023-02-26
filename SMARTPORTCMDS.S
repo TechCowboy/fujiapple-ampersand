@@ -106,18 +106,19 @@ SLOT_ADDR_HI		=	ZP2_HI
 FIND_SMARTPORT_SLOT:
 
 .IF .NOT STRIP_TRACE
+.IF EXT2_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE10
 
-.IF EXT_TRACE
+
                 PRINT_STR REAL_SMARTPORT_STR_ADDR
-.ENDIF
 
                 PRINT_STR FIND_SMARTPORT_SLOT_STR_ADDR
 
  NO_TRACE10:               
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 LDA     #$C7            ; START AT SLOT 7 ($C700)
@@ -162,7 +163,8 @@ NOT_FOUND:
 
 SLOT_FIND_DONE:
 
-.IF .NOT STRIP_TRACE    
+.IF .NOT STRIP_TRACE   
+.IF EXT2_TRACE 
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE28
@@ -171,7 +173,8 @@ SLOT_FIND_DONE:
                 JSR PRTAX
                 JSR CROUT
  NO_TRACE28:               
-                RESTORE_REGS  
+                RESTORE_REGS 
+.ENDIF 
 .ENDIF
 
                 RTS
@@ -244,6 +247,7 @@ NO_DISPATCHER:
 DONE:        
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 PRINT_STR DISPATCHER_ADDRESS_STR_ADDR
 
@@ -253,6 +257,7 @@ DONE:
                 JSR PRTAX
                 JSR CROUT
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 LDA DISPATCHER_ADDR_HI  ; PUT ADDRESS IN A AND X
@@ -283,7 +288,7 @@ SP_OPEN:
                 LDA TRACE_FLAG
                 BEQ NO_TRACE12
                 PRINT_STR SP_OPEN_STR_ADDR
-
+                LDA #':'
                 JSR PRINT_SP_PAYLOAD
                 JSR CROUT
 NO_TRACE12:                
@@ -375,8 +380,7 @@ SP_CLOSE_DONE:
 ;0-1    payload size
 ;2      mode read or write or both
 ;3      translation
-;4      length of url
-;5...   url
+;4...   url
 ;
 ; 'C'-close
 ;0-1    payload size $00
@@ -409,9 +413,16 @@ SP_CONTROL:
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE14
+                TXA
+                PHA
 
                 PRINT_STR SP_CONTROL_STR_ADDR
-
+                LDA #' '
+                JSR COUT
+                PRINT_STR UNIT_STR_ADDR
+                PLA
+                TAX
+                JSR PRTX
                 LDA #'['
                 JSR COUT
                 LDA CMD_LIST+4
@@ -521,7 +532,7 @@ SP_CTRL_DONE:
 SP_STATUS:
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
+.IF EXT2_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE15
@@ -572,7 +583,7 @@ SP_STATUS_DONE:
 CALL_DISPATCHER:
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
+.IF EXT2_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE16
@@ -635,7 +646,7 @@ NUM_DEVICES:    .BYTE $00
 
 ;*******************************
 ; ISTROUT
-;   Display string in inverse
+;   Display string in Fsp_D
 ;**********************************
 ISTROUT:
                 STA ZP1_LO
@@ -721,8 +732,10 @@ DISPLAY_ERROR_OUT:
 
 
 
-FIND_DEVICE_STR:        .RES 255
-FIND_DEVICE_STR_LEN:    .BYTE 0
+FIND_DEVICE_BUF_LEN:    .BYTE 0
+FIND_DEVICE_BUF:        .RES  255
+relocate011:
+FIND_DEVICE_BUF_ADDR:   .WORD FIND_DEVICE_BUF
 
 ;*******************************
 ; PRINT_SP_PAYLOAD
@@ -731,6 +744,10 @@ FIND_DEVICE_STR_LEN:    .BYTE 0
 ;**********************************
 PRINT_SP_PAYLOAD:
                 SAVE_REGS
+
+        LDX SP_PAYLOAD+4
+        JSR PRTX
+        JSR CROUT
 
                 LDX #$00
 PPAYLOAD:   
@@ -760,6 +777,11 @@ PPAYLOAD:
 ;   Y = Low byte address of string
 ;   X = Device number or $FF on failure
 ;*********************************
+
+.IF .NOT STRIP_TRACE
+FOUND_DEVICE_STR: .ASCIIZ "FOUND DEVICE!"
+.ENDIF
+
 SP_FIND_DEVICE:
 
 .IF .NOT STRIP_TRACE
@@ -768,19 +790,21 @@ SP_FIND_DEVICE:
                 LDA TRACE_FLAG
                 BEQ NO_TRACE18
                 PRINT_STR SP_FIND_DEVICE_STR_ADDR
+                LDA #':'
+                JSR COUT
 NO_TRACE18:                
                 RESTORE_REGS
 .ENDIF
 .ENDIF
 
-                STA ZP1_LO
-                STY ZP1_HI
+                STA ZP1_HI
+                STY ZP1_LO
                 
                 LDX #$00
                 LDY #$00
 LOOK_FOR_NULL:
                 LDA (ZP1),Y
-                STA FIND_DEVICE_STR,X 
+                STA FIND_DEVICE_BUF,X 
                 BEQ GOT_LENGTH
                 INY
                 INX
@@ -788,15 +812,14 @@ LOOK_FOR_NULL:
                 BCC LOOK_FOR_NULL
 
 GOT_LENGTH:     
-                STX FIND_DEVICE_STR_LEN         ; LENGTH INCLUDES NULL
+                STX FIND_DEVICE_BUF_LEN         ; LENGTH INCLUDES NULL
 
 .IF .NOT STRIP_TRACE
 .IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE19
-                LDA SP_FIND_DEVICE_STR_ADDR+1
-                LDY SP_FIND_DEVICE_STR_ADDR
+                PRINT_STR FIND_DEVICE_BUF_ADDR
                 JSR CROUT
 NO_TRACE19:                
                 RESTORE_REGS
@@ -804,7 +827,7 @@ NO_TRACE19:
 .ENDIF
 
                 LDX #$00
-                LDY #$00
+                LDY #SP_CMD_STATUS
                 JSR SP_STATUS
 
                 LDX DCOUNT
@@ -820,18 +843,17 @@ NEXT_DEV2:
                 LDY #SP_STATUS_DIB      ; X IS DEVICE 
                 JSR SP_STATUS
                 BCS ERROR_OUT
-
+                
                 LDA SP_PAYLOAD+4        ; LENGTH OF STRING
-                CMP FIND_DEVICE_STR_LEN
+                CMP FIND_DEVICE_BUF_LEN
                 BNE NEXT_DEVICE
 
-; SAME STRING LENGTH SO COMPARE
-                
+
                 LDX #$00        
 SCAN_CHAR:
 
                 LDA SP_PAYLOAD+5,X      ; STRING
-                CMP FIND_DEVICE_STR,X
+                CMP FIND_DEVICE_BUF,X
                 BNE NEXT_DEVICE
 
                 INX
@@ -844,7 +866,6 @@ NEXT_DEVICE:
 
                 PLA
                 TAX
-
                 INX
                 CPX NUM_DEVICES
                 BNE NEXT_DEV2
@@ -856,7 +877,8 @@ NEXT_DEVICE:
                 CLC
                 BCC FOUND_DONE
 
-ERROR_OUT:       
+ERROR_OUT:      
+                ; ERROR STRING HERE
                 PLA
                 LDX #$FE        ; ERROR
                 RTS
@@ -864,7 +886,9 @@ ERROR_OUT:
 FOUND_DEVICE:
                 PLA
                 TAX
-FOUND_DONE:              
+
+FOUND_DONE:    
+
                 RTS
 .ENDIF
 

@@ -52,16 +52,16 @@ PRINT_FLAG:
         STX TEMP_CHAR
         STY TEMP_AND
         
-        AND #$01
+        AND #$80
         BNE FLAG_SET
-        LDA #'.'
+        LDA TEMP_CHAR
         CLC
         BCC PRINT_FLAG_DONE
 FLAG_SET:
-        LDA TEMP_CHAR
-        JSR COUT
-        
+        AND #$3F                ; MAKE IT INVERSE
+     
 PRINT_FLAG_DONE:
+        JSR COUT
         PLA
         RTS
 
@@ -76,30 +76,37 @@ PRINT_FLAGS:
         LDA #' '
         JSR COUT
 
-        LDY #'C'
+        LDA #$80
+        LDX #'N'
+        LSR
         JSR PRINT_FLAG
 
-        LDY #'Z'
-        ROL
+        LDX #'V'
+        LSR
         JSR PRINT_FLAG
 
-        LDY #'I'
-        ROL
+        LDX #'.'
+        LSR
         JSR PRINT_FLAG
 
-        LDY #'D'
-        ROL
+        LDX #'B'
+        LSR
         JSR PRINT_FLAG
 
-        ROL
-        ROL
-
-        LDY #'V'
-        ROL
+        LDX #'D'
+        LSR
         JSR PRINT_FLAG
 
-        LDY #'N'
-        ROL
+        LDX #'I'
+        LSR
+        JSR PRINT_FLAG
+
+        LDX #'Z'
+        LSR
+        JSR PRINT_FLAG
+
+        LDX #'C'
+        LSR
         JSR PRINT_FLAG
 
         RTS
@@ -111,6 +118,8 @@ PRINT_REGS:
 
         PLA             ; GET THE PROCESSOR FLAG
         PHA
+
+        LDA #$80
         STA TEMP_P
         
         STX TEMP_X
@@ -135,7 +144,7 @@ PRINT_REGS:
         LDX TEMP_Y
         JSR PRTX
         
-        JSR PRINT_FLAGS
+;        JSR PRINT_FLAGS
 
         JSR CROUT
         RESTORE_REGS

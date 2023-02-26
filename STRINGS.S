@@ -20,6 +20,8 @@ RELOC_SIZE_STR:                             .ASCIIZ "RELOCATION SIZE: "
 FUJIAPPLE_VER_STR:                          .BYTE   "FUJIAPPLE VERSION: YYYYMMDD.HHMM", $0D, $00
 RELOCATING_STR:                             .BYTE   $0D, "NEW HIMEM: ", $00
 
+OPEN_ERR_STR:                               .ASCIIZ "FN_OPEN: OPEN ERR"
+CTRL_ERR_STR:                               .ASCIIZ "FN_OPEN: CTRL ERR"
 .ENDIF
 
 ; THESE STRING ARE USED AFTER RELOCATING
@@ -76,11 +78,11 @@ DISPATCHER_ADDRESS_STR:                     .ASCIIZ "DISPATCHER ADDRESS:"
 trace011:
 DISPATCHER_ADDRESS_STR_ADDR:                .WORD DISPATCHER_ADDRESS_STR
 
-SP_OPEN_STR:                                .BYTE "SP_OPEN",    $0D, $00
+SP_OPEN_STR:                                .BYTE "SP_OPEN",    $00
 trace012:
 SP_OPEN_STR_ADDR:                           .WORD SP_OPEN_STR
 
-SP_CLOSE_STR:                               .BYTE "SP_CLOSE",   $0D, $00
+SP_CLOSE_STR:                               .BYTE "SP_CLOSE",   $00
 trace013:
 SP_CLOSE_STR_ADDR:                          .WORD SP_CLOSE_STR
 
@@ -100,7 +102,7 @@ DISPLAY_SP_STATUS_STR:                      .BYTE "DISPLAY_SP_STATUS", $0D, $00
 trace017:
 DISPLAY_SP_STATUS_STR_ADDR:                 .WORD DISPLAY_SP_STATUS_STR
 
-SP_FIND_DEVICE_STR:                         .BYTE "SP_FIND_DEVICE",    $0D, $00
+SP_FIND_DEVICE_STR:                         .BYTE "SP_FIND_DEVICE",    $00
 trace018:
 SP_FIND_DEVICE_STR_ADDR:                    .WORD SP_FIND_DEVICE_STR
 
@@ -112,9 +114,9 @@ FAKE_SMARTPORT_STR:                         .BYTE "**** FAKE SMARTPORT ****", $0
 trace020:
 FAKE_SMARTPORT_STR_ADDR:                    .WORD FAKE_SMARTPORT_STR
 
-FIND_NETWORK_STR:                           .BYTE "FIND_NETWORK"    , $0D, $00
+FN_FIND_NETWORK_STR:                         .BYTE "FN_FIND_NETWORK"    , $0D, $00
 trace021:
-FIND_NETWORK_STR_ADDR:                      .WORD FIND_NETWORK_STR
+FN_FIND_NETWORK_STR_ADDR:                    .WORD FN_FIND_NETWORK_STR
 
 FN_BYTES_WAITING_STR:                       .BYTE "FN_BYTES_WAITING", $0D, $00
 trace022:
@@ -124,11 +126,11 @@ FN_IS_CONNECTED_STR:                        .BYTE "FN_IS_CONNECTED" , $0D, $00
 trace023:
 FN_IS_CONNECTED_STR_ADDR:                   .WORD FN_IS_CONNECTED_STR
 
-FN_OPEN_STR:                                .BYTE "FN_OPEN"         , $0D, $00
+FN_OPEN_STR:                                .BYTE "FN_OPEN"         , $00
 trace024:
 FN_OPEN_STR_ADDR:                           .WORD FN_OPEN_STR
 
-FN_CLOSE_STR:                               .BYTE "FN_CLOSE"        , $0D, $00
+FN_CLOSE_STR:                               .BYTE "FN_CLOSE"        , $00
 trace025:
 FN_CLOSE_STR_ADDR:                          .WORD FN_CLOSE_STR
 
@@ -139,6 +141,19 @@ CPY_URL_TO_PAYLOAD_STR_ADDR:                .WORD CPY_URL_TO_PAYLOAD_STR
 URL_STR:                                    .ASCIIZ "URL: "
 trace027:
 URL_STR_ADDR:                               .WORD URL_STR
+
+
+MODE_STR:                                   .ASCIIZ "MODE: "
+trace031:
+MODE_STR_ADDR:                              .WORD MODE_STR
+
+TRANS_STR:                                  .ASCIIZ "TRANS: "
+trace032:
+TRANS_STR_ADDR:                             .WORD TRANS_STR
+
+PAYLOAD_STR:                                .BYTE $0D, "PAYLOAD:", $0D, $00
+trace033:
+PAYLOAD_STR_ADDR:                           .WORD PAYLOAD_STR
 
 .ENDIF
 
@@ -202,6 +217,10 @@ FUJI_DISK_0_STR_ADDR:                       .WORD FUJI_DISK_0_STR
 NETWORK_STR:                                .ASCIIZ "NETWORK"
 str014:
 NETWORK_STR_ADDR:                           .WORD NETWORK_STR
+
+DEVICE_NOT_FOUND_STR:                       .ASCIIZ "DEVICE NOT FOUND!"
+str015:
+DEVICE_NOT_FOUND_STR_ADDR:                  .WORD DEVICE_NOT_FOUND_STR
 
 ; NOT A STRING, BUT NEEDED ANYWAY
 .IF .NOT USE_SP
