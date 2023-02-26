@@ -1,5 +1,12 @@
+
+.IF .NOT .DEFINED(CIDERPRESS_CORRUPTION_TEST)
+
 ; THESE STRINGS ARE USED DURING INITIALIZATION AND
 ; WON'T BE USED AFTERWARDS SO DON'T NEED TO BE RELOCATED
+
+CIDERPRESS_CORRUPTION_TEST:                 .BYTE $0A, "CIDERPRESS CORRUPTED FILE", $00
+
+
 EXTADDED_STR:                               .BYTE   $0D, "FUJINET EXTENSIONS ADDED.", $0D, $00
 SP_NOT_FOUND_STR:                           .BYTE   "NO SMARTPORT! EXTENSIONS NOT LOADED", $0D, $00
 EXITING_STR:                                .BYTE   "EXITING...", $0D, $00
@@ -9,11 +16,10 @@ EXITING_STR:                                .BYTE   "EXITING...", $0D, $00
 
 ; NOT NEEDED IF WE'RE NOT DEBUGGING
 
-HIMEM_IS_STR:                               .ASCIIZ "CURRENT ADDRESS OF HIMEM: "
+HIMEM_IS_STR:                               .ASCIIZ "OLD HIMEM: "
 RELOC_SIZE_STR:                             .ASCIIZ "RELOCATION SIZE: "
 FUJIAPPLE_VER_STR:                          .BYTE   "FUJIAPPLE VERSION: YYYYMMDD.HHMM", $00, $0D
-ADJUST_HIMEM_STR:                           .BYTE   $0D, "ADJUSTING HIMEM TO: ", $00 
-RELOCATING:                                 .BYTE   $0D, "RELOCATING TO HIMEM...", $00
+RELOCATING_STR:                             .BYTE   $0D, "NEW HIMEM: ", $00
 
 .ENDIF
 
@@ -200,8 +206,9 @@ NETWORK_STR_ADDR:                           .WORD NETWORK_STR
 
 ; NOT A STRING, BUT NEEDED ANYWAY
 .IF .NOT USE_SP
-trace028:
+trace030:
 FAKE_DISPATCHER_ADDR:                       .WORD FAKE_DISPATCHER
 
+.ENDIF
 
 .ENDIF

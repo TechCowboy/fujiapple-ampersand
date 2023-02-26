@@ -7,11 +7,7 @@
 ;
 ; By Norman Davie
 
-.IF .DEFINED(ZP1)
-
-; ALREADY INCLUDED
-
-.ELSE
+.IF .NOT .DEFINED(ZP1)
 
 .IF .DEFINED(APPLEII)
 ZP1	        =	$EB
@@ -54,28 +50,5 @@ ZP4_HI		=	$A9
 ZP5		=	$AA
 .ENDIF
 
-.MACRO SAVE_REGS
-        PHP
-        PHA
-        TXA
-        PHA
-        TYA
-        PHA
-.ENDMACRO
-
-.MACRO RESTORE_REGS
-        PLA
-        TAY
-        PLA
-        TAX
-        PLA
-        PLP
-.ENDMACRO
-
-.MACRO PRINT_STR STR
-        LDA STR
-        LDY STR+1
-        JSR STROUT
-.ENDMACRO
 
 .ENDIF

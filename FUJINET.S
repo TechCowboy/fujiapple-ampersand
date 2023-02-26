@@ -1,4 +1,7 @@
-
+;*****************************************************
+; FUJINET.S
+; BASIC to Fujinet
+; By Norman Davie
 
 FN_ERR_WRITE_ONLY       = 131	    ;Protocol is in Write-only mode
 FN_ERR_INVALID_COMMAND  = 132	    ;Protocol was sent an invalid command
@@ -29,14 +32,12 @@ FN_ERR_MEMORY_ERROR     = 255	    ;Could not allocate either receive or transmit
 
 ; X = DEVICE
 
-
-
-CPY_URL_TO_PAYLOAD:
+CPY_URL_TO_SP_PAYLOAD:
 
                 LDA URL_ADDR+1
                 LDY URL_ADDR
                 
-CPY_STR_TO_PAYLOAD:
+CPY_STR_TO_SP_PAYLOAD:
                 STA ZP1_LO
                 STY ZP1_HI
                 
@@ -59,7 +60,13 @@ GOT_LENGTH2:
 
                 RTS
 
-
+;******************************************************************
+; FN_OPEN
+; Open the specified UNIT
+;
+; INPUT
+; X = UNIT DESTINATION
+;******************************************************************
 FN_OPEN:
 
 .IF .NOT STRIP_TRACE
@@ -71,34 +78,40 @@ NO_TRACE20:
                 RESTORE_REGS
 .ENDIF
 
-                TXA
+                TXA                         ; X CONTAINS THE UNIT NUMBER
                 PHA
                 JSR SP_OPEN
+                BCS OPEN_ERR
 
-;  uint8_t get_status_code(iwm_decoded_cmd_t cmd) {return cmd.params[2];}
-;  uint16_t get_numbytes(iwm_decoded_cmd_t cmd) { return cmd.params[2] + (cmd.params[3] << 8); };
-;  uint32_t get_address(iwm_decoded_cmd_t cmd) { return cmd.params[4] + (cmd.params[5] << 8) + (cmd.params[6] << 16); }
-
-
-                LDY #$02                ; PAYLOAD SIZE = $102 = 258 BYTES
+                LDY #$02                    ; PAYLOAD SIZE = $102 = 258 BYTES
                 STY PAYLOAD
                 DEY
                 STY PAYLOAD+1
-                
-                LDA MODE                ; READ OR WRITE OR BOTH
+       
+                LDA MODE                    ; READ OR WRITE OR BOTH
                 STA PAYLOAD+2
                 
-                LDA TRANSLATION         ; CHARACTER TRANSLATION
+                LDA TRANSLATION             ; CHARACTER TRANSLATION
                 STA PAYLOAD+3
 
-                JSR CPY_URL_TO_PAYLOAD  ; TRANSFER THE URL
+                JSR CPY_URL_TO_SP_PAYLOAD   ; TRANSFER THE URL
 
 .IF .NOT STRIP_TRACE
+                SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE21
+
+                LDX MODE
+                JSR PRINT_X
+
+                LDX TRANSLATION
+                JSR PRINT_X
+                JSR CROUT
+
                 JSR PRINT_SP_PAYLOAD    ; PRINT THE URL
                 JSR CROUT
-NO_TRACE21:                
+NO_TRACE21:              
+                RESTORE_REGS
 .ENDIF
 
                 PLA                     ; GET BACK OUR DEVICE NUMBER
@@ -107,8 +120,19 @@ NO_TRACE21:
                 JSR SP_CONTROL
 
                 RTS
+OPEN_ERR:
+                PLA
+                SEC
+                LDX #FN_ERR_NETWORK_DOWN
+                RTS
 
-
+;******************************************************************
+; FN_CLOSE
+; Close the specified UNIT
+;
+; INPUT
+; X = UNIT DESTINATION
+;******************************************************************
 FN_CLOSE:
 
 .IF .NOT STRIP_TRACE
@@ -136,6 +160,13 @@ NO_TRACE22:
                 RTS
 
 
+;******************************************************************
+; FN_IS_CONNECTED
+; Is this unit connected to a site
+;
+; INPUT
+; X = UNIT DESTINATION
+;******************************************************************
 ; X = DEVICE
 FN_IS_CONNECTED:
 
@@ -157,7 +188,13 @@ NO_TRACE23:
                 ROR
                 RTS
 
-; X = DEVICE 
+;******************************************************************
+; FN_BYTES_WAITING
+; Number of characters in the buffer
+;
+; INPUT
+; X = UNIT DESTINATION
+;******************************************************************
 FN_BYTES_WAITING:
 
 .IF .NOT STRIP_TRACE
@@ -176,8 +213,16 @@ NO_TRACE24:
                 LDY SP_PAYLOAD+1
                 RTS
         
-; X=DEVICE
-FIND_NETWORK:
+;******************************************************************
+; FN_FIND_NETWORK
+; Return the Unit number for a device
+;
+; INPUT
+;   A = High byte address of string
+;   Y = Low byte address of string
+;   X = Device number or $FF on failure
+;******************************************************************
+FN_FIND_NETWORK:
 
 .IF .NOT STRIP_TRACE
 .IF EXT_TRACE
@@ -192,6 +237,7 @@ NO_TRACE25:
 
                 LDA NETWORK_STR_ADDR+1
                 LDY NETWORK_STR_ADDR
+            
                 JSR SP_FIND_DEVICE
 
                 RTS

@@ -30,9 +30,9 @@
 ;    ]
 ;}
 
-STRIP_TRACE= 1  ; Eliminate all tracing code and strings
-EXT_TRACE  = 0  ; Extended Trace, 1=display more internal debug messages 
-RELOCATE   = 1  ; 1=relocate himem and put our code there
+STRIP_TRACE= 0  ; Eliminate all tracing code and strings
+EXT_TRACE  = 0  ; Extended Trace, 1=display SMARTPORT internal debug messages 
+RELOCATE   = 0  ; 1=relocate himem and put our code there
 PRODOS     = 1  ; 0=add dos 3.3 header
 APPLEII    = 1  ; always set to one, EQUs will be for apple zero page
 USE_SP     = 1  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
@@ -59,6 +59,7 @@ START      = $4000
 .ENDIF
 ; VARIOUS SYSTEM ROUTINES AND LOCATIONS 
 
+
         .include "APPLEEQU.S"
         .include "ZEROPAGE.S"
 
@@ -76,6 +77,15 @@ TOK_NOTRACE             =       156       ; APPLESOFT TOKEN FOR NOTRACE
 STARTOFFILE:
 
 NINIT:
+                LDA CIDERPRESS_CORRUPTION_TEST
+                CMP #$0A
+                BEQ NOT_CORRUPTED
+                LDA #<CIDERPRESS_CORRUPTION_TEST
+                LDY #>CIDERPRESS_CORRUPTION_TEST
+                JSR STROUT
+                RTS
+
+NOT_CORRUPTED:
 
 .IF .NOT STRIP_TRACE
                 JSR NTRACE
@@ -98,6 +108,7 @@ NINIT:
                 LDY #>SP_NOT_FOUND_STR
                 JSR STROUT
 
+BYE:
                 LDA #<EXITING_STR
                 LDY #>EXITING_STR
                 JSR STROUT
@@ -125,25 +136,23 @@ FOUND_SMARTPORT:
 
 .IF RELOCATE
 		JSR ADJUST_HIMEM        ; Move HIMEM so we can put our code at it. 
+.ENDIF
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
-		LDA #<RELOCATING        ; "RELOCATING TO:"
-		LDY #>RELOCATING
+		LDA #<RELOCATING_STR    ; "RELOCATING TO:"
+		LDY #>RELOCATING_STR
 		JSR STROUT
-.ENDIF
 .ENDIF
 
 		LDA HIMEM+1
 		LDX HIMEM
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
 		JSR PRTAX               ; PRINT NEW HIMEM ADDRESS
                 JSR CROUT
 .ENDIF
-.ENDIF
 
+.IF RELOCATE
                 JSR RELOCATE_TO_HIMEM   ; copy the code and data, adjust all absolute addresses
 .ENDIF
 
@@ -216,6 +225,8 @@ RELOCATE_CODE_START:
 ;   IF IT DOESN'T MATCH OUR COMMANDS, THEN
 ;   GO TO THE PREVIOUS AMPERSAND ROUTINE
 ;****************************************
+                .include "MACROS.S"
+
 NSTART:
                 LDX #$00
 NEXTCMD:
@@ -363,7 +374,45 @@ WORDSAV:
                 JSR MOVMF      ; STORE VALUE INTO VARIABLE
                 RTS
 ;*************************************
+; DISPLAY INTERNAL STATE
 ;*************************************
+DISPLAY_INTERNAL_STATE:
+
+                SAVE_REGS
+                LDX UNIT
+                JSR PRINT_X
+                LDX MODE
+                JSR PRINT_X
+                LDX TRANSLATION
+                JSR PRINT_X
+                JSR CROUT
+                LDA #'"'
+                JSR COUT
+                PRINT_STR URL_ADDR
+                LDA #'"'
+                JSR COUT
+                JSR CROUT
+
+                LDX URL_LEN
+                JSR PRINT_X
+
+                LDX COMMAND
+                JSR PRINT_X
+                JSR CROUT
+
+                LDX NETWORK
+                JSR PRINT_X
+                LDX NETWORK+1
+                JSR PRINT_X
+                LDX NETWORK+2
+                JSR PRINT_X
+                LDX NETWORK+3
+                JSR PRINT_X
+                JSR CROUT
+
+                RESTORE_REGS
+                RTS
+
 ;*************************************
 NOPEN:
 
@@ -386,7 +435,7 @@ NOPEN:
 .IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE1
-                PRINT_STR NOT_OPENED_STR_ADDR   ; "NOPEN"
+                PRINT_STR NOPEN_STR_ADDR        ; "NOPEN"
 NO_TRACE1:
 .ENDIF
                 JSR GETBYT                      ; GET THE UNIT
@@ -397,50 +446,50 @@ NO_TRACE1:
 
                 LDX #ILLEGAL_QUANTITY_ERROR     ; MUST BE BETWEEN 0 AND 3
                 JMP APPLESOFT_ERROR
-
-                
+               
 UNIT_OK1:
-                LDA NETWORK_STR_ADDR+1       ; TEMPORARY -- WE'LL BE SWITCHING TO NETWORK_0, ETC.
-                LDY NETWORK_STR_ADDR
-                JSR SP_FIND_DEVICE
-                TXA
-                LDX UNIT
-                STA NETWORK, X  ; THIS IS THE ACTUAL UNIT NUMBER
+                JSR FN_FIND_NETWORK
+                TXA                             ; THIS IS THE ACTUAL NUMBER NUMBER
+                LDX UNIT                        ; LOAD THE "BASIC" UNIT NUMBER
+
+                STA NETWORK, X                  ; STORE THE ACTUAL NUMBER NUMBER FOR LATER USE
 
                 JSR CHKCOM
-                JSR GETBYT     ; GET MODE
+                JSR GETBYT                      ; GET MODE
                 STX MODE
 
                 JSR CHKCOM
-                JSR GETBYT     ; GET TRANS
+                JSR GETBYT                      ; GET TRANS
                 STX TRANSLATION
 
                 JSR CHKCOM
-                JSR CHRGOT     ; WHAT ARE WE POINTING AT IN BASIC
-                CMP #QUOTE     ; IS IT A STATIC STRING?
+                JSR CHRGOT                      ; WHAT ARE WE POINTING AT IN BASIC
+                CMP #QUOTE                      ; IS IT A STATIC STRING?
                 BNE VARSTR
 
-                JSR GETSTR     ; GETS THE STATIC STRING, STORED IN STRBUF
+                JSR GETSTR                      ; GETS THE STATIC STRING, STORED IN STRBUF
 
 ; WE'RE GOING TO CREATE A NEW DESCRIPTION
 ; THE SAME WAY APPLESOFT DOES
 
-                LDA STRLEN     ; GETSTR STORES THE STRING LENGTH HERE
+                LDA STRLEN                      ; GETSTR STORES THE STRING LENGTH HERE
                 STA DSCTMP
-                LDA STRBUF_ADDR+1   ; THE ADDRESS OF OUR STATIC STRING
+
+                LDA STRBUF_ADDR                 ; THE ADDRESS OF OUR STATIC STRING
                 STA DSCTMP+1
-                LDA STRBUF_ADDR
+                LDA STRBUF_ADDR+1
                 STA DSCTMP+2
+                
                 CLC
                 BCC STORE
 
 VARSTR:
-                JSR GETSTRVAR  ; IT'S A STRING VARIABLE
+                JSR GETSTRVAR                   ; IT'S A STRING VARIABLE
 STORE:
-                LDY DSCTMP     ; GET THE STRING LENGTH
+                LDY DSCTMP                      ; GET THE STRING LENGTH
                 STY URL_LEN
 STORING:
-                LDA (DSCTMP+1),Y
+                LDA (DSCTMP+1),Y                ; TRANSER THE STRING TO THE URL BUFFER
                 STA URL,Y
                 DEY
                 BPL STORING
@@ -448,11 +497,27 @@ STORING:
 ; MAKE THE STRING C COMPATIBLE
 
                 LDY DSCTMP
-                LDA #0         ; NULL TERMINATE STRING
+                LDA #0                          ; NULL TERMINATE THE STRING
                 STA URL,Y
+
+;.IF .NOT STRIP_TRACE
+;                PHA
+;                LDA TRACE_FLAG
+;                BEQ NO_TRACE31
+;                JSR DISPLAY_INTERNAL_STATE
+;NO_TRACE31:
+;                PLA
+;.ENDIF
 
                 JSR FN_OPEN
 
+                BCC NOPEN_COMPLETE
+
+                LDX UNIT                        ; FAILED TO OPEN
+                LDA #$FF                        ; INDICATE THE NETWORK IS 
+                STA NETWORK,X                   ; NOT IN USE
+
+NOPEN_COMPLETE:
                 RTS
 ;*********************************************
 NCLOSE:
@@ -625,7 +690,7 @@ GETVAR3:
 
 STORE3:
 
-; MOVE STRING TO BUF
+; MOVE STRING TO PAYLOAD
                 LDY   DSCTMP
 CPY2BUF:
                 LDA   (DSCTMP+1),Y
@@ -886,7 +951,7 @@ BUFLEN:         .BYTE         0
 STRADDR:        .WORD         0
 STRBUF:         .RES          255
 relocate010:
-STRBUF_ADDR:    .WORD         STRBUF_ADDR
+STRBUF_ADDR:    .WORD         STRBUF
 STRLEN:         .BYTE         0
 NETWORK:        .BYTE         $FF, $FF, $FF, $FF
 
