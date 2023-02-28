@@ -23,6 +23,13 @@ RELOCATING_STR:                             .BYTE   $0D, "NEW HIMEM: ", $00
 OPEN_ERR_STR:                               .ASCIIZ "FN_OPEN: OPEN ERR"
 CTRL_ERR_STR:                               .ASCIIZ "FN_OPEN: CTRL ERR"
 
+TEST_BLOCK_STR:
+    .BYTE "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt "
+    .BYTE "labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco "
+    .BYTE "laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in "
+    .BYTE "voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat "
+    .BYTE "non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+    .BYTE $00
 .ENDIF
 
 ; THESE STRING ARE USED AFTER RELOCATING
@@ -37,7 +44,7 @@ NOPEN_STR_ADDR:                             .WORD NOPEN_STR
 
 NREAD_STR:                                  .BYTE "NREAD ", $00
 trace001:
-NREAD_STR_ADDR:                             .WORD NREAD_STR_ADDR
+NREAD_STR_ADDR:                             .WORD NREAD_STR
 
 NCLOSE_STR:                                 .BYTE "NCLOSE ",  $00
 trace002:
@@ -55,15 +62,15 @@ NLIST_STR:                                  .BYTE "NLIST", $0D, $00
 trace005:
 NLIST_STR_ADDR:                             .WORD NLIST_STR
 
-NTRACE_STR:                                 .BYTE   "NTRACE", $0D, $00 
+NTRACE_STR:                                 .BYTE "NTRACE", $0D, $00 
 trace006:
 NTRACE_STR_ADDR:                            .WORD NTRACE_STR
 
-NWRITE_STR:
+NWRITE_STR:                                 .BYTE "NWRITE", $0D, $00
 trace007:
 NWRITE_STR_ADDR:                            .WORD NWRITE_STR
 
-NCTRL_STR:
+NCTRL_STR:                                  .BYTE "NCTRL", $0D, $00
 trace008:
 NCTRL_STR_ADDR:                             .WORD NCTRL_STR
 
@@ -143,7 +150,6 @@ URL_STR:                                    .ASCIIZ "URL: "
 trace027:
 URL_STR_ADDR:                               .WORD URL_STR
 
-
 MODE_STR:                                   .ASCIIZ "MODE: "
 trace031:
 MODE_STR_ADDR:                              .WORD MODE_STR
@@ -166,11 +172,27 @@ FOUND_DEVICE_STR_ADDR:                      .WORD FOUND_DEVICE_STR
 
 CLOSE_ERROR_STR:                            .BYTE "CLOSE ERROR", $00
 trace036:
-CLOSE_ERROR_STR_DATA:                       .WORD CLOSE_ERROR_STR
+CLOSE_ERROR_STR_ADDR:                       .WORD CLOSE_ERROR_STR
 
 FN_READ_STR:                                .BYTE "FN_READ", $00
 trace037:       
 FN_READ_STR_ADDR:                           .WORD FN_READ_STR
+
+FN_READ_ERROR_STR:                          .BYTE "FN_READ ERROR", $0D, $00
+trace038:
+FN_READ_ERROR_STR_ADDR:                     .WORD FN_READ_ERROR_STR
+
+FN_WRITE_STR:                               .BYTE "FN_WRITE", $00
+trace039:
+FN_WRITE_STR_ADDR:                          .WORD FN_WRITE_STR
+
+SP_READ_ERROR_STR:                          .BYTE "SP_READ ERROR", $0D, $00
+trace040:
+SP_READ_ERROR_STR_ADDR:                     .WORD SP_READ_ERROR_STR
+
+NREAD_ERROR_STR:                            .BYTE "NREAD_ERROR", $0D, $00
+trace041:
+NREAD_ERROR_STR_ADDR:                       .WORD NREAD_ERROR_STR
 .ENDIF
 
 NOT_OPENED_STR:                             .ASCIIZ "UNIT NOT OPENED!"
@@ -247,11 +269,10 @@ str017:
 NETWORK_NOT_FOUND_STR_ADDR:                 .WORD NETWORK_NOT_FOUND_STR
 
 ; NOT A STRING, BUT NEEDED ANYWAY
-.IF .NOT USE_SP
 
+.IF .NOT USE_SP
 trace030:
 FAKE_DISPATCHER_ADDR:                       .WORD FAKE_DISPATCHER
-
 .ENDIF
 
 .ENDIF

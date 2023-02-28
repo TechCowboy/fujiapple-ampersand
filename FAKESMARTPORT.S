@@ -134,7 +134,7 @@ CMD_UNKNOWN:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
-relocatesp04:   .WORD CMD_LIST
+relocatefsp00:  .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT
@@ -254,4 +254,13 @@ COPY_STR:
                 TAX
                 RTS
 
+
+SP_CLOSE:
+                RTS
+SP_READ:
+                RTS
+SP_CONTROL:
+                RTS
+SP_OPEN:        
+                RTS
 .ENDIF 

@@ -39,7 +39,7 @@
 ; EXT_TRACE includes calls into the SMARTPORT routines
 
 STRIP_TRACE= 0  ; Eliminate all tracing code and strings
-EXT_TRACE  = 1  ; Extended Trace, 1=display some SMARTPORT internal debug messages 
+EXT_TRACE  = 1  ; Extended Trace, 1=display SMARTPORT internal debug messages 
 EXT2_TRACE = 0  ; Extended Trace 2, display SP_STATUS and CALL_DISPATCHER
 RELOCATE   = 0  ; 1=relocate himem and put our code there
 PRODOS     = 1  ; 0=add dos 3.3 header
@@ -75,6 +75,7 @@ START      = $4000
 
         .include "APPLEEQU.S"
         .include "ZEROPAGE.S"
+        .include "MACROS.S"
 
 
 TOK_READ                =       135       ; APPLESOFT TOKEN FOR READ
@@ -215,6 +216,7 @@ FOUND_SMARTPORT:
 ; SAVE PREVIOUS VECTOR INFO
 
 SAVEVECT:
+
                 LDA AMPVECT
                 STA PREVECT
                 LDA AMPVECT+1
@@ -248,11 +250,24 @@ RELOCATE_CODE_START:
 ;****************************************
 ; THIS IS USED TO DETERMINE IF THE
 ; EXTENSIONS HAVE ALREADY BEEN INSTALLED
-; X = PEEK(1016)+PEEK(1017*256)
-; X = X - 1
-; C = PEEK(X)
-; X = X - C
-; FOR Y = 0 TO C: PRINT CHR$(PEEK(X);:X=X+1:NEXT Y
+; (R=1)
+;****************************************
+;10000 REM *************************
+;10010 REM DETERMINE IF FUJI EXTENSIONS
+;10015 REM HAVE BEEN INSTALLED (R=1)
+;10020 REM *************************
+;10030 X = PEEK(1014)+PEEK(1015)*256
+;10040 X = X - 1
+;10050 C = PEEK(X): IF C = 0 OR C > 20 THEN 10080
+;10060 X = X - C - 1
+;10070 A$=""
+;10080 FOR Y = 1 TO C: A$=A$+CHR$(PEEK(X)):X=X+1:NEXT Y
+;10090 B$ = "FUJIAMP"
+;10100 PRINT A$;"--";B$;"?";
+;10130 IF A$=B$ THEN R=1: PRINT "YES":GOTO 10150
+;10140 R=0:PRINT "NO"
+;10150 RETURN
+
 ;****************************************
                 .ASCIIZ "FUJIAMP"
                 .BYTE 7
@@ -263,7 +278,6 @@ RELOCATE_CODE_START:
 ;   IF IT DOESN'T MATCH OUR COMMANDS, THEN
 ;   GO TO THE PREVIOUS AMPERSAND ROUTINE
 ;****************************************
-                .include "MACROS.S"
 
 NSTART:
                 LDX #$00
@@ -453,7 +467,6 @@ DISPLAY_INTERNAL_STATE:
 
 ;*************************************
 NOPEN:
-
 ; &NOPEN UNIT,MODE,TRANS,URL$
 ; &NOPEN UNIT,MODE,TRANS,"URL"
 ;
@@ -479,10 +492,13 @@ NO_TRACE1:
                 JSR GETBYT                      ; GET THE UNIT
                 STX BASIC_UNIT        
 .IF .NOT STRIP_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE32
                 SAVE_REGS
                 JSR PRTX
                 JSR CROUT
                 RESTORE_REGS
+NO_TRACE32:
 .ENDIF
                 CPX #$04       
                 BMI UNIT_OK1                    ; OUT OF RANGE?
@@ -625,25 +641,27 @@ NO_TRACE3:
                 RESTORE_REGS
 .ENDIF
 
-                JSR   CHKCOM
-                JSR   PTRGET    ; GET THE STRING
+                JSR CHKCOM
+                JSR PTRGET    ; GET THE STRING
 
-                JSR   CHKCOM
-                JSR   GETBYT    ; GET THE LENGTH
-                STX   BUFLEN
+                JSR CHKCOM
+                JSR GETBYT    ; GET THE LENGTH
+                STX BUFLEN
                 TXA
 
-                JSR   STRINI    ; CREATE STRING OF LENGTH A
-                LDY   #0
-                LDA   DSCTMP    ; COPY NEW DESCRIPTON
-                STA   (VARPTR),Y
-                INY
-                LDA   DSCTMP+1
-                STA   (VARPTR),Y
-                INY
-                LDA   DSCTMP+2
-                STA   (VARPTR),Y
+                JSR STRINI    ; CREATE NEW STRING OF LENGTH A
 
+                LDY #0
+                LDA DSCTMP    ; COPY NEW DESCRIPTON
+                STA (VARPTR),Y
+                INY
+                LDA DSCTMP+1  ; LOCATION OF NEW BUFFER
+                STA (VARPTR),Y
+                INY
+                LDA DSCTMP+2
+                STA (VARPTR),Y
+
+                LDX BASIC_UNIT
                 LDA NETWORK,X
                 CMP #$FF
                 BNE UNIT_OK2
@@ -652,18 +670,41 @@ NO_TRACE3:
                 JMP SYNERR
 
 UNIT_OK2:
-
-                JSR FN_READ 
+                LDX BASIC_UNIT
+                LDA NETWORK, X  ; THIS IS THE ACTUAL UNIT NUMBER
+                TAX 
+                JSR FN_READ
+                CPX #$FF
+                BEQ NREAD_ERROR
                 
-;****** TO DO ******
-; CALL FUJINET READ FOR 'BUFLEN' BYTES
-; AND STORE THOSE BYTES IN BUF
-;*******************
+                JSR PRINT_SP_PAYLOAD2       ; PRINT WHAT'S IN THE BUFFER
 
-                LDA   BUFLEN
-                LDY   #.HIBYTE(BUF)
-                LDX   #.LOBYTE(BUF)
+                ; MOVSTR
+                ; Source must be in Y(HI) and X(LO)
+                ; Destination must be in FRESPC ($71,$72)
+
+                LDA DSCTMP+2
+                STA FRESPC+1
+
+                LDX DSCTMP+1
+                STX FRESPC
+
+                JSR PRTAX
+                JSR CROUT
+
+                LDY SP_PAYLOAD_ADDR+1
+                LDX SP_PAYLOAD_ADDR
+
+                LDY #>TEST_BLOCK_STR
+                LDX #<TEST_BLOCK_STR
+
+
                 JSR   MOVSTR    ; COPY BUFFER TO STRING (VAR$)
+                RTS
+NREAD_ERROR:
+
+                PRINT_STR NREAD_ERROR_STR_ADDR
+
                 RTS
 ;*****************************************************
 NWRITE:
@@ -714,11 +755,12 @@ COPYBUF:
                 LDX BASIC_UNIT
                 LDA NETWORK,X
                 CMP #$FF
-                BNE UNIT_OK2
+                BNE UNIT_OK5
 
                 PRINT_STR NOT_OPENED_STR
                 JMP SYNERR
 
+UNIT_OK5:
 ;****** TO DO *********
 ; BUF NOW CONTAINS DATA
 ; TO BE SENT
@@ -1032,25 +1074,25 @@ OLDHIMEM:       .RES 2                  ; VALUE OF ORIGINAL HIMEM
 
 ;***************************************
 BASIC_UNIT:     .BYTE         0         ; BASIC UNIT 0-4 NOT FUJINET UNIT
-MODE:           .BYTE         0
-TRANSLATION:    .BYTE         0
-URL:            .RES          255
+MODE:           .BYTE         0         ; 4=READ ONLY, 6=READ DIRECTORY, 8= WRITE ONLY, 12=READ/WRITE, 13= HTTP POST
+TRANSLATION:    .BYTE         0         ; 0 = NO TRANSLATION, 1=CR to ATASCII EOL, 2=LF to ATASCII EOL, 3=CR/LF to ATASCII EOL
+URL_LEN:        .BYTE         0
+URL:            .RES          255       
 relocate009:
 URL_ADDR:       .WORD         URL
-URL_LEN:        .BYTE         0
-COMMAND:        .BYTE         0
-BASIC_PAYLOAD:  .RES          255
-BW:             .WORD         0        ; BYTES WAITING
-CONNECT:        .BYTE         0
-NERR:           .BYTE         0
-BUF:            .RES          255      ; GENERIC BUFFER FOR READ/WRITE
+COMMAND:        .BYTE         0         ; FUJINET COMMAND
+BASIC_PAYLOAD:  .RES          255       ; PAYLOAD TO SEND
+BW:             .WORD         0         ; BYTES WAITING
+CONNECT:        .BYTE         0         ; 1=CONNECTED
+NERR:           .BYTE         0         ; LAST ERROR
 BUFLEN:         .BYTE         0
+BUF:            .RES          255       ; GENERIC BUFFER FOR READ/WRITE
 STRADDR:        .WORD         0
+STRLEN:         .BYTE         0
 STRBUF:         .RES          255
 relocate010:
 STRBUF_ADDR:    .WORD         STRBUF
-STRLEN:         .BYTE         0
-NETWORK:        .BYTE         $FF, $FF, $FF, $FF
+NETWORK:        .BYTE         $FF, $FF, $FF, $FF ; BASIC UNIT INDEX TO ACTUAL UNIT
 
 .include "STRINGS.S"
 
@@ -1068,6 +1110,11 @@ RELOCATION_TABLE:
 
 .include "STR_RELOC.S"
 
+.IF USE_SP
+               .WORD    relocatesp00,relocatesp01,relocatesp02,relocatesp03,relocatesp04,relocatesp05,relocatesp06,relocatesp07;,relocatesp08,relocatesp09
+.ELSE
+                .WORD   relocatefsp00
+.ENDIF
 END_RELOCATION_TABLE:	
                 .WORD 	0 ; end of table
 

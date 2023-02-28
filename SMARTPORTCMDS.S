@@ -9,6 +9,7 @@
 
         .include "APPLEEQU.S"
         .include "ZEROPAGE.S"
+        .include "MACROS.S"
 
 SP_CMD_STATUS           =       $00
 SP_CMD_READ_BLOCK       =       $01
@@ -49,8 +50,8 @@ SP_ERROR_NON_FATAL7F    =       $7F     ; DEVICE SPECIFIC WARNING
 SP_INIT_PARAM_COUNT     =       3
 SP_OPEN_PARAM_COUNT     =       3
 SP_CLOSE_PARAM_COUNT    =       3
-;SP_READ_PARAM_COUNT     =       4
-;SP_WRITE_PARAM_COUNT    =       4 SIZE VARIES
+SP_READ_PARAM_COUNT     =       4
+SP_WRITE_PARAM_COUNT    =       4 
 SP_STATUS_PARAM_COUNT   =       3
 SP_CONTROL_PARAM_COUNT  =       3
 
@@ -69,8 +70,9 @@ CMD_LIST_PCOUNT:.BYTE   $FF             ; PARAMETER COUNT
 CMD_LIST_DEST:  .BYTE   $FF             ; DESTINATION DEVICE NUMBER
 relocatesp00:
 CMD_LIST_RESULT:.WORD   SP_PAYLOAD      ; DATA RETURN HERE
+CMD_LIST_LEN_LO:                        ; LENGTH LOW BYTE
 CMD_LIST_STAT:  .BYTE   $FF             ; STATUS CODE
-
+CMD_LIST_LEN_HI:.BYTE   $FF             ; LENGTH HIGH BYTE
 
 SP_PAYLOAD:
 DCOUNT:         .BYTE   $01             ; NUMBER OF DEVICES
@@ -81,9 +83,12 @@ MANUFACTURER:   .WORD   $FFFF           ; DRIVER MANUFACTURER
                                         ; $0002-$FFFF 3RD PARTY DRIVER
 INTERFACEVER:   .WORD   $FFFF           ; INTERFACE VERSION
                 .WORD   $0000           ; RESERVED (MUST BE $0000)
-                .RES    255
+                .RES    255             ; RESERVED FOR DATA
 
 SP_COUNT:       .WORD   $FFFF           ; BYTES IN PAYLOAD?
+
+relocatesp01:
+SP_PAYLOAD_ADDR:.WORD  SP_PAYLOAD
 
 
 
@@ -268,7 +273,7 @@ DONE:
 .ENDIF
 
 
-
+.IF USE_SP
 
 ;******************************************************************
 ; SP_OPEN
@@ -314,7 +319,7 @@ NO_TRACE12:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_OPEN
-relocatesp01:   .WORD CMD_LIST
+relocatesp02:   .WORD CMD_LIST
                 
                 BCS OPEN_ERROR
 
@@ -361,7 +366,7 @@ NO_TRACE13:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_CLOSE
-relocatesp02:   .WORD CMD_LIST
+relocatesp03:   .WORD CMD_LIST
                 
                 BCS CLOSE_ERROR
 
@@ -454,7 +459,7 @@ NO_TRACE14:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_CONTROL
-relocatesp03:   .WORD CMD_LIST
+relocatesp04:   .WORD CMD_LIST
                 
                 BCS CTRL_ERROR
                 BCC SP_CTRL_DONE
@@ -465,63 +470,194 @@ CTRL_ERROR:
                 TAX
                 JSR PRTX
                 JSR CROUT
+                SEC
 
 SP_CTRL_DONE:
 
                 RTS
 
+;******************************************************************
+; SP_READ
 ;The Read command reads a specified number of bytes from the target device
 ;specified in the unit number parameter. The bytes read by this command are
 ;written into RAM, beginning at the address specified in the data buffer pointer. The
 ;number of bytes to be read is specified in the byte count parameter. The parameter
 ;list for this call is as follows:
-;ByteDefinition
-;0parameter list length ($04)
-;unit number
-;buffer pointer
-;byte count
-;address pointer
-;1
-;2-3
-;4-5
-;6-7
+;
+;Byte  Definition
+;0      parameter list length ($04)
+;1      unit number
+;2-3    data buffer pointer
+;4-5    byte count
+;6-7    address pointer
+;
 ;Parameter description
-;unit number: This parameter contains the SmartPort unit number of the target SCSI
-;device. See Chapter 2 for details on selecting the correct SmartPort unit number for
-;your target device.
 ;data buffer pointer: This parameter contains the beginning address of the host data
 ;buffer to which the target bytes are written.
-;byte count: This parameter contains the number of bytes to read for this
-;command.
-;addresa pointer: This parameter contains the block address of the target block.
+;byte count: This parameter contains the number of bytes to be read 
+;address pointer: This parameter contains the block address of the target block.
+;******************************************************************
 
+;int8_t sp_read(uint8_t dest, uint16_t len)
+;{
+;  sp_error = 0;
+;  // sp_dest = 5; // need to search
+;  // build the command list
+;  sp_cmdlist[0] = SP_READ_PARAM_COUNT; 
+;  sp_cmdlist[1] = dest; // set before calling sp_status();
+;  sp_cmdlist[2] = (uint8_t)((uint16_t)&sp_payload & 0x00FF);
+;  sp_cmdlist[3] = (uint8_t)((uint16_t)&sp_payload >> 8) & 0xFF;
+;  sp_cmdlist[4] = len & 0xFF;
+;  sp_cmdlist[5] = len >> 8;
+;  
+;  sp_cmdlist_low = (uint8_t)((uint16_t)&sp_cmdlist & 0x00FF);
+;  sp_cmdlist_high = (uint8_t)((uint16_t)&sp_cmdlist >> 8) & 0xFF;;;
+;
+;  // store cmd list
+;  __asm__ volatile ("lda #%b", SP_CMD_READ);
+;  __asm__ volatile ("sta %g", spCmd); // store status command #
+;  __asm__ volatile ("lda %v", sp_cmdlist_low);
+;  __asm__ volatile ("sta %g", spCmdListLow); // store status command #
+;  __asm__ volatile ("lda %v", sp_cmdlist_high);
+;  __asm__ volatile ("sta %g", spCmdListHigh); // store status command #
+;  
+;  __asm__ volatile ("jsr $C50D"); // to do - find entry point and used it instead of hardcoded address
+;spCmd:
+;  __asm__ volatile ("nop");
+;spCmdListLow:
+;  __asm__ volatile ("nop");
+;spCmdListHigh:
+;  __asm__ volatile ("nop");
+;  __asm__ volatile ("sta %v", sp_err);
+;  sp_error = sp_err;
+;  return sp_err;
+;}
+SP_READ:
+
+.IF .NOT STRIP_TRACE
+.IF EXT2_TRACE
+                SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE15
+                TXA
+                PHA
+                PRINT_STR SP_READ_STR_ADDR
+                LDA #':'
+                JSR COUT
+                PRINT_STR UNIT_STR_ADDR
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
+NO_TRACE15:                
+                RESTORE_REGS
+.ENDIF
+.ENDIF
+
+                LDA #SP_READ_PARAM_COUNT
+                STA CMD_LIST_PCOUNT             ; [0] PARAMETER COUNT
+                STX CMD_LIST_DEST               ; [1] DESTINATION DEVICE
+                STY CMD_LIST_LEN_HI             ; [4] LENGTH
+                LDA #$00
+                STY CMD_LIST_LEN_LO             ; [5]
+                JSR CALL_DISPATCHER
+
+                .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
+relocatesp05:   .WORD CMD_LIST
+
+                STX SP_COUNT+1
+                STY SP_COUNT
+                BCC SP_READ_DONE
+ERROR:
+                PHA
+                PRINT_STR SP_ERROR_STR_ADDR
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
+                SEI
+                RTS
+
+SP_READ_DONE:
+
+                JSR PRINT_SP_PAYLOAD2
+                CLC
+                RTS
+
+
+;******************************************************************
+; SP_WRITE
 ;The Write command writes a specified number of bytes to the target device
 ;specified in the unit number p4rameter. The bytes written by this command are
 ;read from RAM, beginning at the address specified in the data buffer pointer. The
 ;number of bytes to be written is specified in the byte count parameter. The
 ;parameter list for this call is as follows:
-;ByteDefinition
-;0
-;1
-;2-3
-;4-5
-;6-7parameter list length
-;unit number
-;buffer pointer
-;byte count
-;address pointer
-;34
-;Chapter 3: The FirmwareParameter description
-;unit number: This parameter contains the SmartPort unit number of the target SCSI
-;device. See Chapter 2 for details on selecting the correct SmartPort unit number for
-;your target device.
+;
+;Byte  Definition
+;0      parameter list length 
+;1      unit number
+;2-3    data buffer pointer
+;4-5    byte count
+;6-7    address pointer
+;
 ;data buffer pointer: This parameter contains the beginning address of the data
 ;buffer from which the target bytes are written.
 ;byte count: This parameter contains the number of bytes to write for this
 ;command.
 ;address pointer: This parameter contains the block address of the target block.
+;******************************************************************
+SP_WRITE:
 
-.IF USE_SP
+.IF .NOT STRIP_TRACE
+.IF EXT2_TRACE
+                SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE15
+                TXA
+                PHA
+                PRINT_STR SP_WRITE_STR_ADDR
+                LDA #':'
+                JSR COUT
+                PRINT_STR UNIT_STR_ADDR
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
+NO_TRACE15:                
+                RESTORE_REGS
+.ENDIF
+.ENDIF
+
+                LDA #SP_WRITE_PARAM_COUNT
+                STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
+                STX CMD_LIST_DEST               ; DESTINATION DEVICE
+                STY CMD_LIST_LEN_LO             ; LENGTH
+                LDA #$00
+                STY CMD_LIST_LEN_HI     
+                JSR CALL_DISPATCHER
+
+                .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
+relocatesp06:   .WORD CMD_LIST
+
+                STX SP_COUNT+1
+                STY SP_COUNT
+                BCS ERROR2
+
+                BCC SP_WRITE_DONE
+ERROR2:
+                PHA
+                PRINT_STR SP_ERROR_STR_ADDR
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
+
+SP_WRITE_DONE:
+
+                RTS
+
+
+
 
 ;******************************************************************
 ; SP_STATUS
@@ -569,14 +705,14 @@ NO_TRACE15:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
-relocatesp04:   .WORD CMD_LIST
+relocatesp07:   .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT
-                BCS ERROR
+                BCS ERROR3
 
                 BCC SP_STATUS_DONE
-ERROR:
+ERROR3:
                 PHA
                 PRINT_STR SP_ERROR_STR_ADDR
                 PLA
@@ -587,7 +723,6 @@ ERROR:
 SP_STATUS_DONE:
 
                 RTS
-
 .ENDIF
 
 ;*******************************
@@ -778,6 +913,7 @@ PPAYLOAD:
 PAYLOAD2:
                 RTS
 
+;**********************************
 PRINT_SP_PAYLOAD2:
                 SAVE_REGS
 
@@ -917,16 +1053,12 @@ NEXT_DEVICE:
 
 ERROR_OUT:      
                 ; ERROR STRING HERE
-                JSR PRINT_REGS
                 PLA
                 LDX #$FF                                ; ERROR
                 RTS
 
 FOUND_DEVICE:
 
-.IF .NOT STRIP_TRACE
-                PRINT_STR FOUND_DEVICE_STR_ADDR
-.ENDIF
                 PLA
                 TAX
 

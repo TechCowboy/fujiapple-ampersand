@@ -3,6 +3,9 @@
 ; BASIC to Fujinet
 ; By Norman Davie
 
+    .include "MACROS.S"
+    .include "REGS.S"
+
 FN_OK                   = 0
 FN_ERR_WRITE_ONLY       = 131	    ;Protocol is in Write-only mode
 FN_ERR_INVALID_COMMAND  = 132	    ;Protocol was sent an invalid command
@@ -194,41 +197,6 @@ OPEN_ERR_DONE:
 ; X = UNIT DESTINATION
 ;******************************************************************
 
-;int8_t sp_read(uint8_t dest, uint16_t len)
-;{
-;  sp_error = 0;
-;  // sp_dest = 5; // need to search
-;  // build the command list
-;  sp_cmdlist[0] = SP_READ_PARAM_COUNT; 
-;  sp_cmdlist[1] = dest; // set before calling sp_status();
-;  sp_cmdlist[2] = (uint8_t)((uint16_t)&sp_payload & 0x00FF);
-;  sp_cmdlist[3] = (uint8_t)((uint16_t)&sp_payload >> 8) & 0xFF;
-;  sp_cmdlist[4] = len & 0xFF;
-;  sp_cmdlist[5] = len >> 8;
-;  
-;  sp_cmdlist_low = (uint8_t)((uint16_t)&sp_cmdlist & 0x00FF);
-;  sp_cmdlist_high = (uint8_t)((uint16_t)&sp_cmdlist >> 8) & 0xFF;;;
-;
-;  // store cmd list
-;  __asm__ volatile ("lda #%b", SP_CMD_READ);
-;  __asm__ volatile ("sta %g", spCmd); // store status command #
-;  __asm__ volatile ("lda %v", sp_cmdlist_low);
-;  __asm__ volatile ("sta %g", spCmdListLow); // store status command #
-;  __asm__ volatile ("lda %v", sp_cmdlist_high);
-;  __asm__ volatile ("sta %g", spCmdListHigh); // store status command #
-;  
-;  __asm__ volatile ("jsr $C50D"); // to do - find entry point and used it instead of hardcoded address
-;spCmd:
-;  __asm__ volatile ("nop");
-;spCmdListLow:
-;  __asm__ volatile ("nop");
-;spCmdListHigh:
-;  __asm__ volatile ("nop");
-;  __asm__ volatile ("sta %v", sp_err);
-;  sp_error = sp_err;
-;  return sp_err;
-;}
-
 FN_READ:
 
 .IF .NOT STRIP_TRACE
@@ -249,35 +217,25 @@ NO_TRACE22:
                 RESTORE_REGS
 .ENDIF
 
-                TXA
-                PHA
+                ; X= DEVICE
+                LDY #$00                ; PAYLOAD SIZE = MAX 255
+                LDY BUFLEN          
                 
+                JSR SP_READ
+                BCC READ_OK
 
-                LDY #$00                ; PAYLOAD SIZE = ZERO
-                STY SP_PAYLOAD
-                STY SP_PAYLOAD+1
-                
-
-                LDY #'R'                ; SEND 'C' TO FUJINET
-                JSR SP_CONTROL
-                BCC CLOSE_OK
-
-                PLA
                 LDX #$FF
 
 .IF .NOT STRIP_TRACE                
-                PRINT_STR CLOSE_ERROR_STR_DATA
+                PRINT_STR FN_READ_ERROR_STR_ADDR
 .ENDIF
 
                 CLC
-                BCC CLOSE_DONE
-CLOSE_OK:
-                PLA
-                TAX
-                JSR SP_CLOSE
+                BCC READ_DONE
+READ_OK:
 
                 LDX #FN_OK
-CLOSE_DONE:
+READ_DONE:
                 RTS
 
 ;******************************************************************
@@ -292,7 +250,7 @@ FN_CLOSE:
 .IF .NOT STRIP_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
-                BEQ NO_TRACE22
+                BEQ NO_TRACE33
                 TXA
                 PHA
                 PRINT_STR FN_CLOSE_STR_ADDR
@@ -303,7 +261,7 @@ FN_CLOSE:
                 TAX
                 JSR PRTX
                 JSR CROUT
-NO_TRACE22:                
+NO_TRACE33:                
                 RESTORE_REGS
 .ENDIF
 
@@ -322,7 +280,7 @@ NO_TRACE22:
                 LDX #$FF
 
 .IF .NOT STRIP_TRACE                
-                PRINT_STR CLOSE_ERROR_STR_DATA
+                PRINT_STR CLOSE_ERROR_STR_ADDR
 .ENDIF
 
                 CLC
@@ -445,7 +403,8 @@ NO_TRACE25:
                 BNE FIND_COMPLETED
 
 MULTI_NETWORK:
-
+                ; IF WE'RE HERE, THEN WE DIDN'T FIND "NETWORK"
+                ; OR A UNIT NUMBER GREATER THAN ZERO WAS SPECIFIED.
                 ; LOOK FOR "NETWORK_X"
 
                 LDA BASIC_UNIT
