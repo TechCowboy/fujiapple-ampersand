@@ -5,7 +5,7 @@
             "label": "ca65: Compile and Link Current File",
             "group": "build",
             "type": "shell",
-            "command": " cl65 -l listing.s -v -t apple2 -C apple2-asm.cfg  \"${file}\"",
+            "command": " cl65 -l listing.s -v -t apple2 -C apple2-asm.cfg  \"FUJIAPPLE.S\"",
             "problemMatcher": [
                 "$ca65",
                 "$ld65",

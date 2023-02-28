@@ -55,6 +55,7 @@ SP_STATUS_PARAM_COUNT   =       3
 SP_CONTROL_PARAM_COUNT  =       3
 
 
+SP_ERROR_NOT_FOUND      =       SP_ERROR_NON_FATAL50
 
 SMARTPORT_DISPATCHER: 
 DISPATCHER_ADDR_LO:
@@ -285,13 +286,24 @@ SP_OPEN:
 .IF .NOT STRIP_TRACE
 .IF EXT_TRACE
                 SAVE_REGS
+                TXA
+                PHA
                 LDA TRACE_FLAG
                 BEQ NO_TRACE12
+                JSR CROUT
                 PRINT_STR SP_OPEN_STR_ADDR
                 LDA #':'
-                JSR PRINT_SP_PAYLOAD
+                JSR COUT
+
+                PLA
+                PHA
+                TAX
+                JSR PRTX
                 JSR CROUT
-NO_TRACE12:                
+                JSR PRINT_SP_PAYLOAD2
+                JSR CROUT
+NO_TRACE12:          
+                PLA
                 RESTORE_REGS
 .ENDIF
 .ENDIF
@@ -417,7 +429,7 @@ SP_CONTROL:
                 PHA
 
                 PRINT_STR SP_CONTROL_STR_ADDR
-                LDA #' '
+                LDA #':'
                 JSR COUT
                 PRINT_STR UNIT_STR_ADDR
                 PLA
@@ -445,7 +457,6 @@ NO_TRACE14:
 relocatesp03:   .WORD CMD_LIST
                 
                 BCS CTRL_ERROR
-
                 BCC SP_CTRL_DONE
 CTRL_ERROR:
                 PHA
@@ -536,7 +547,16 @@ SP_STATUS:
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE15
+                TXA
+                PHA
                 PRINT_STR SP_STATUS_STR_ADDR
+                LDA #':'
+                JSR COUT
+                PRINT_STR UNIT_STR_ADDR
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
 NO_TRACE15:                
                 RESTORE_REGS
 .ENDIF
@@ -745,10 +765,6 @@ FIND_DEVICE_BUF_ADDR:   .WORD FIND_DEVICE_BUF
 PRINT_SP_PAYLOAD:
                 SAVE_REGS
 
-        LDX SP_PAYLOAD+4
-        JSR PRTX
-        JSR CROUT
-
                 LDX #$00
 PPAYLOAD:   
                 LDA SP_PAYLOAD+5,X      ; STRING
@@ -759,9 +775,34 @@ PPAYLOAD:
                 BNE PPAYLOAD
 
                 RESTORE_REGS
-
+PAYLOAD2:
                 RTS
 
+PRINT_SP_PAYLOAD2:
+                SAVE_REGS
+
+                PRINT_STR LEN_STR_ADDR
+
+                LDA #'['
+                JSR COUT
+                LDX SP_PAYLOAD+4
+                JSR PRTX
+                LDA #']'
+                JSR COUT
+
+                LDX #$00
+PPAYLOAD2:   
+                LDA SP_PAYLOAD+5,X      ; STRING
+                ORA #$80
+                JSR COUT
+                INX
+                CPX SP_PAYLOAD+4
+                BNE PPAYLOAD2
+
+                JSR CROUT
+                RESTORE_REGS
+
+                RTS
 
 ;***************************************************************
 .IF USE_SP
@@ -778,10 +819,6 @@ PPAYLOAD:
 ;   X = Device number or $FF on failure
 ;*********************************
 
-.IF .NOT STRIP_TRACE
-FOUND_DEVICE_STR: .ASCIIZ "FOUND DEVICE!"
-.ENDIF
-
 SP_FIND_DEVICE:
 
 .IF .NOT STRIP_TRACE
@@ -789,101 +826,107 @@ SP_FIND_DEVICE:
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE18
-                PRINT_STR SP_FIND_DEVICE_STR_ADDR
-                LDA #':'
-                JSR COUT
+                PRINT_STR SP_FIND_DEVICE_STR_ADDR       ; "SP_FIND_DEVICE:"
 NO_TRACE18:                
                 RESTORE_REGS
 .ENDIF
 .ENDIF
 
-                STA ZP1_HI
+                STA ZP1_HI                              ; STORE THE STRING ADDRESS
                 STY ZP1_LO
                 
                 LDX #$00
                 LDY #$00
 LOOK_FOR_NULL:
-                LDA (ZP1),Y
-                STA FIND_DEVICE_BUF,X 
-                BEQ GOT_LENGTH
+                LDA (ZP1),Y                             ; START OF STRING WITHOUT LENGTH
+                STA FIND_DEVICE_BUF,X                   
+                BEQ GOT_LENGTH                          ; STOP WHEN WE GET TO NULL
                 INY
                 INX
                 CLC
                 BCC LOOK_FOR_NULL
 
 GOT_LENGTH:     
-                STX FIND_DEVICE_BUF_LEN         ; LENGTH INCLUDES NULL
+                STX FIND_DEVICE_BUF_LEN                 ; SAVE THE LENGTH INCLUDES NULL
 
 .IF .NOT STRIP_TRACE
 .IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE19
-                PRINT_STR FIND_DEVICE_BUF_ADDR
-                JSR CROUT
+                PRINT_STR FIND_DEVICE_BUF_ADDR          ; DISPLAY THE STRING WE COLLECTED
+                JSR CROUT                               ; CARRIAGE RETURN
 NO_TRACE19:                
                 RESTORE_REGS
 .ENDIF
 .ENDIF
 
                 LDX #$00
-                LDY #SP_CMD_STATUS
+                LDY #SP_CMD_STATUS                      ; ASK FOR SMARTPORT STATUS
                 JSR SP_STATUS
 
-                LDX DCOUNT
+                LDX DCOUNT                              ; THE NUMBER OF DEVICES
                 INX
                 STX NUM_DEVICES
 
-                LDX #$01
+                LDX #$01                                ; START AT DEVICE #1
 
 NEXT_DEV2: 
                 TXA
                 PHA 
 
-                LDY #SP_STATUS_DIB      ; X IS DEVICE 
-                JSR SP_STATUS
+                LDY #SP_STATUS_DIB                      ; X IS DEVICE 
+                JSR SP_STATUS                           ; GET INFO
                 BCS ERROR_OUT
                 
-                LDA SP_PAYLOAD+4        ; LENGTH OF STRING
-                CMP FIND_DEVICE_BUF_LEN
-                BNE NEXT_DEVICE
+                LDA SP_PAYLOAD+4                        ; LENGTH OF STRING
+                CMP FIND_DEVICE_BUF_LEN                 ; IS IT THE SAME SIZE AS THE STRING WE'RE LOOKING FOR?
+                BNE NEXT_DEVICE                         ; NOPE, CHECK NEXT DEVICE
 
+
+                ; SAME SIZE STRING, NOW CHECK AND SEE IF IT
+                ; IS THE DEVICE WE'RE LOOKING FOR
 
                 LDX #$00        
 SCAN_CHAR:
 
-                LDA SP_PAYLOAD+5,X      ; STRING
-                CMP FIND_DEVICE_BUF,X
-                BNE NEXT_DEVICE
+                LDA SP_PAYLOAD+5,X                      ; INFO STRING
+                CMP FIND_DEVICE_BUF,X                   ; DEVICE WE'RE LOOKING FOR
+                BNE NEXT_DEVICE                         ; NOT THE SAME, CHECK NEXT DEVICE
 
-                INX
-                CPX SP_PAYLOAD+4        ; LENGTH OF STRING
-                BNE SCAN_CHAR
+                INX                                     ; MOVE TO NEXT DEVICE
+                CPX SP_PAYLOAD+4                        ; HAVE WE FINISHED LOOKING AT THE SAME NUMBER OF CHARACTERS?
+                BNE SCAN_CHAR                           ; NOPE, KEEP GOING                           
 
                 CLC
-                BCC FOUND_DEVICE        ; WE FOUND OUR DEVICE
+                BCC FOUND_DEVICE                        ; WE FOUND OUR DEVICE
 NEXT_DEVICE:
 
-                PLA
-                TAX
-                INX
-                CPX NUM_DEVICES
-                BNE NEXT_DEV2
+                PLA                                     ; REMOVE THE DEVICE NUMBER OFF STACK
+                TAX                                     
+                INX                                     ; AND INCREMENT IT
+                CPX NUM_DEVICES                         ; HAVE WE CHECKED ALL DEVICES?
+                BNE NEXT_DEV2                           ; NOPE, KEEP GOING
 
                 ; EXHAUSTED OUR LIST
 
-                LDX #$FF        ; NOT FOUND
-
+                LDX #$FF                                ; NOT FOUND
+                LDA #SP_ERROR_NOT_FOUND
                 CLC
                 BCC FOUND_DONE
 
 ERROR_OUT:      
                 ; ERROR STRING HERE
+                JSR PRINT_REGS
                 PLA
-                LDX #$FE        ; ERROR
+                LDX #$FF                                ; ERROR
                 RTS
 
 FOUND_DEVICE:
+
+.IF .NOT STRIP_TRACE
+                PRINT_STR FOUND_DEVICE_STR_ADDR
+.ENDIF
                 PLA
                 TAX
 

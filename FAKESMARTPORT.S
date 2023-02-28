@@ -1,26 +1,6 @@
 .IF .NOT USE_SP
 
 
-CPY_STR_TO_SP_PAYLOAD:
-                STA ZP1_LO
-                STY ZP1_HI
-                
-                LDX #$00
-                LDY #$00
-LOOK_FOR_NULL3:
-                LDA (ZP1),Y
-                STA SP_PAYLOAD+5,X 
-                BEQ GOT_LENGTH3
-                INY
-                INX
-                CLC
-                BCC LOOK_FOR_NULL3
-
-GOT_LENGTH3:
-                STX SP_PAYLOAD+4         ; X = LENGTH INCLUDES NULL
-                RTS
-
-
 ;*******************************
 ; FIND_SMARTPORT_SLOT
 ; INPUT:
@@ -259,13 +239,13 @@ NO_TRACE27:
                 CPX #$01
                 BNE NETWORK_DEV
 
-                LDA FUJI_DISK_0_STR_ADDR
-                LDY FUJI_DISK_0_STR_ADDR+1
+                LDA FUJI_DISK_0_STR_ADDR+1
+                LDY FUJI_DISK_0_STR_ADDR
                 CLC
                 BCC COPY_STR
 NETWORK_DEV:
-                LDA NETWORK_STR_ADDR
-                LDY NETWORK_STR_ADDR+1
+                LDA NETWORK_STR_ADDR+1
+                LDY NETWORK_STR_ADDR
 
 COPY_STR:
                 JSR CPY_STR_TO_SP_PAYLOAD

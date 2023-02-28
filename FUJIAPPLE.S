@@ -46,7 +46,9 @@ PRODOS     = 1  ; 0=add dos 3.3 header
 APPLEII    = 1  ; always set to one, EQUs will be for apple zero page
 USE_SP     = 1  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
 
-SMALL_TEST = 1  ; Test only one small portion of FujiNet
+SMALL_TEST = 0  ; Test only one small portion of FujiNet
+
+
 START      = $4000
 
 
@@ -91,7 +93,6 @@ NINIT:
 
 .IF SMALL_TEST
 
-
         LDA #<FUJIAPPLE_VER_STR                 ; "VERSON: YYYYMMDD.HHMM" - FILLED BY PYTHON SCRIPT
         LDY #>FUJIAPPLE_VER_STR
         JSR  STROUT
@@ -100,11 +101,12 @@ NINIT:
         LDY #>TEST_STR
         JSR STROUT
 
-        JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
-        
-        JSR FN_FIND_NETWORK
-        JSR FN_OPEN
-        JSR PRINT_REGS
+;        JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
+;        
+;        JSR FN_FIND_NETWORK
+;        JSR FN_OPEN
+;        JSR PRINT_REGS
+
         RTS
 
 TEST_STR:    
@@ -415,7 +417,7 @@ WORDSAV:
 DISPLAY_INTERNAL_STATE:
 
                 SAVE_REGS
-                LDX UNIT
+                LDX BASIC_UNIT
                 JSR PRINT_X
                 LDX MODE
                 JSR PRINT_X
@@ -475,8 +477,13 @@ NOPEN:
 NO_TRACE1:
 .ENDIF
                 JSR GETBYT                      ; GET THE UNIT
-                STX UNIT        
-
+                STX BASIC_UNIT        
+.IF .NOT STRIP_TRACE
+                SAVE_REGS
+                JSR PRTX
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
                 CPX #$04       
                 BMI UNIT_OK1                    ; OUT OF RANGE?
 
@@ -484,10 +491,17 @@ NO_TRACE1:
                 JMP APPLESOFT_ERROR
                
 UNIT_OK1:
-                JSR FN_FIND_NETWORK
-                TXA                             ; THIS IS THE ACTUAL NUMBER NUMBER
-                LDX UNIT                        ; LOAD THE "BASIC" UNIT NUMBER
+                LDX BASIC_UNIT                  ; WHICH NETWORK TO FIND 0-4
+                JSR FN_FIND_NETWORK             ; FUJINET UNIT WILL BE IN X
+                CPX #$FF                        ; IT *SHOULD* ALWAYS BE FOUND
+                BNE NET_FOUND
+                PRINT_STR NETWORK_NOT_FOUND_STR_ADDR
+                LDX #ILLEGAL_QUANTITY_ERROR
+                JMP APPLESOFT_ERROR
 
+NET_FOUND:
+                TXA                             ; THIS IS THE ACTUAL NUMBER NUMBER
+                LDX BASIC_UNIT                  ; LOAD THE "BASIC" UNIT NUMBER
                 STA NETWORK, X                  ; STORE THE ACTUAL NUMBER NUMBER FOR LATER USE
 
                 JSR CHKCOM
@@ -545,11 +559,14 @@ STORING:
 ;                PLA
 ;.ENDIF
 
+                LDX BASIC_UNIT                  ; BASIC UNIT 0-4
+                LDA NETWORK,X                   ; FUJINET UNIT
+                TAX
                 JSR FN_OPEN
 
                 BCC NOPEN_COMPLETE
 
-                LDX UNIT                        ; FAILED TO OPEN
+                LDX BASIC_UNIT                  ; FAILED TO OPEN
                 LDA #$FF                        ; INDICATE THE NETWORK IS 
                 STA NETWORK,X                   ; NOT IN USE
 
@@ -568,17 +585,18 @@ NCLOSE:
 NO_TRACE2:                
 .ENDIF
                 JSR   GETBYT                    ; GET THE UNIT
-                STX   UNIT
-                
+                STX   BASIC_UNIT
 
-;****** TO DO *****
-; CALL FUJINET ROUTINE TO CLOSE
-;*****************
+.IF .NOT STRIP_TRACE
+                SAVE_REGS
+                JSR PRTX
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF               
 
-                LDX UNIT
-                STA NETWORK, X  ; THIS IS THE ACTUAL UNIT NUMBER
+                LDX BASIC_UNIT
+                LDA NETWORK, X  ; THIS IS THE ACTUAL UNIT NUMBER
                 TAX
-
                 JSR FN_CLOSE
 
                 LDA #$FF
@@ -598,7 +616,15 @@ NREAD:
 NO_TRACE3:                
 .ENDIF
                 JSR   GETBYT    ; GET THE UNIT
-                STX   UNIT
+                STX   BASIC_UNIT
+
+.IF .NOT STRIP_TRACE
+                SAVE_REGS
+                JSR PRTX
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
+
                 JSR   CHKCOM
                 JSR   PTRGET    ; GET THE STRING
 
@@ -627,6 +653,8 @@ NO_TRACE3:
 
 UNIT_OK2:
 
+                JSR FN_READ 
+                
 ;****** TO DO ******
 ; CALL FUJINET READ FOR 'BUFLEN' BYTES
 ; AND STORE THOSE BYTES IN BUF
@@ -650,7 +678,14 @@ NWRITE:
 NO_TRACE4:
 .ENDIF
                 JSR   GETBYT     ; GET UNIT
-                STX   UNIT
+                STX   BASIC_UNIT
+
+.IF .NOT STRIP_TRACE
+                SAVE_REGS
+                JSR PRTX
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
 
                 JSR   CHKCOM
                 JSR   CHRGOT     ; WHAT ARE WE POINTING AT IN BASIC?
@@ -676,7 +711,7 @@ COPYBUF:
                 DEY
                 BPL   COPYBUF
 
-                LDX UNIT
+                LDX BASIC_UNIT
                 LDA NETWORK,X
                 CMP #$FF
                 BNE UNIT_OK2
@@ -706,7 +741,14 @@ NCTRL:
 NO_TRACE5:
 .ENDIF
                 JSR   GETBYT     ; GET UNIT
-                STX   UNIT
+                STX   BASIC_UNIT
+
+.IF .NOT STRIP_TRACE
+                SAVE_REGS
+                JSR PRTX
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
 
                 JSR   CHKCOM
                 JSR   GETBYT     ; GET COMMAND
@@ -734,7 +776,8 @@ CPY2BUF:
                 DEY
                 BPL   CPY2BUF
 ;*
-
+                LDA BASIC_UNIT
+                TAX
                 LDA NETWORK,X
                 CMP #$FF
                 BNE UNIT_OK4
@@ -764,8 +807,14 @@ NSTATUS:
 NO_TRACE6:                
 .ENDIF
                 JSR GETBYT
-                STA UNIT       ; STORE THE UNIT NUMBER
+                STX BASIC_UNIT       ; STORE THE UNIT NUMBER
 
+.IF .NOT STRIP_TRACE
+                SAVE_REGS
+                JSR PRTX
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
                 JSR CHKCOM
 
 ;******* TO DO *******
@@ -774,27 +823,39 @@ NO_TRACE6:
 ;* GET ERROR VALUE AND STORE IN NERR - TODO
 ;*********************
 
-                LDX UNIT                ; GET BYTES WAITING
-                JSR FN_BYTES_WAITING
-                STA BW
-                STY BW+1
-
-                LDX UNIT
+                LDX BASIC_UNIT
+                LDA NETWORK,X                
+                TAX
 
                 LDA NETWORK,X
                 CMP #$FF
                 BNE UNIT_OK3
 
+                ; IF THE UNIT HASN'T BEEN OPENED
+                ; THEN ERROR
+
                 PRINT_STR NOT_OPENED_STR_ADDR
                 JMP SYNERR
+               
+                ; GET BYTES WAITING
+                JSR FN_BYTES_WAITING
+                STA BW
+                STY BW+1
                 
 UNIT_OK3:
 
+                LDX BASIC_UNIT
+                LDA NETWORK,X 
+                TAX
                 JSR FN_IS_CONNECTED     ; GET CONNECTED STATE
                 STA CONNECT
 
+                LDX BASIC_UNIT
+                LDA NETWORK,X 
+                TAX
+                ; TODO: GET LAST ERROR HERE
                 LDY #$00                ; GET ERROR VALUE
-                STA NERR
+                STY NERR
 
                 ; SEND TO BASIC
 
@@ -970,7 +1031,7 @@ OLDHIMEM:       .RES 2                  ; VALUE OF ORIGINAL HIMEM
 
 
 ;***************************************
-UNIT:           .BYTE         0
+BASIC_UNIT:     .BYTE         0         ; BASIC UNIT 0-4 NOT FUJINET UNIT
 MODE:           .BYTE         0
 TRANSLATION:    .BYTE         0
 URL:            .RES          255

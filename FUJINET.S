@@ -3,6 +3,7 @@
 ; BASIC to Fujinet
 ; By Norman Davie
 
+FN_OK                   = 0
 FN_ERR_WRITE_ONLY       = 131	    ;Protocol is in Write-only mode
 FN_ERR_INVALID_COMMAND  = 132	    ;Protocol was sent an invalid command
 FN_ERR_MISSING_PROTO    = 133	    ;No protocol attached.
@@ -46,8 +47,8 @@ FN_ERR_MEMORY_ERROR     = 255	    ;Could not allocate either receive or transmit
 
 CPY_URL_TO_SP_PAYLOAD:
 
-                LDA URL_ADDR+1
-                LDY URL_ADDR
+                LDA URL_ADDR        ; STRING WITHOUT LENGTH
+                LDY URL_ADDR+1
                 
 CPY_STR_TO_SP_PAYLOAD:
                 STA ZP1_LO
@@ -57,7 +58,7 @@ CPY_STR_TO_SP_PAYLOAD:
                 LDY #$00
 LOOK_FOR_NULL2:
                 LDA (ZP1),Y
-                STA SP_PAYLOAD+4,X 
+                STA SP_PAYLOAD+5,X 
                 BEQ GOT_LENGTH2
                 INY
                 INX
@@ -65,16 +66,20 @@ LOOK_FOR_NULL2:
                 BCC LOOK_FOR_NULL2
 
 GOT_LENGTH2:
-                INX
-                LDA #$00
-                STA SP_PAYLOAD+4,X
+                INX                     
+                LDA #$00                ; NULL TERMINATE STRING
+                STA SP_PAYLOAD+5,X
 
+                TXA
+                STA SP_PAYLOAD+4        ; STORE LENGTH
+
+                TAX                     ; RETURN LENGTH
                 RTS
 
 ;******************************************************************
 ; FN_OPEN
-; Open the specified UNIT
-;
+; Open the specified UNIT, gets it ready for reading or writing
+; 
 ; INPUT
 ; X = UNIT DESTINATION
 ;******************************************************************
@@ -82,26 +87,30 @@ FN_OPEN:
 
 .IF .NOT STRIP_TRACE
                 SAVE_REGS
-                LDA TRACE_FLAG
-                BEQ NO_TRACE20
                 TXA
                 PHA
+                LDA TRACE_FLAG
+                BEQ NO_TRACE20
                 PRINT_STR FN_OPEN_STR_ADDR
-                LDA #' '
+                LDA #':'
                 JSR COUT
                 PRINT_STR UNIT_STR_ADDR
                 PLA
+                PHA
                 TAX
                 JSR PRTX
-                JSR CROUT
+                LDA #' '
+                JSR COUT
 
-NO_TRACE20:                
+NO_TRACE20:     
+                PLA           
                 RESTORE_REGS
 .ENDIF
 
                 TXA                         ; X CONTAINS THE UNIT NUMBER
                 PHA
 
+                ; STAGE #1
                 ; OPEN THE DEVICE #X
                 JSR SP_OPEN 
                 BCS OPEN_ERR
@@ -110,25 +119,23 @@ NO_TRACE20:
                 PHA
                 TAX
 
-                ; CONNECT TO URL
+                ; STAGE #2
+                ; SET PAYLOAD SIZE
                 LDY #$02                    ; PAYLOAD SIZE = $102 = 258 BYTES
                 STY SP_PAYLOAD
                 LDY #$01
                 STY SP_PAYLOAD+1
        
+                ; FILL PAYLOAD - Read/write mode
                 LDA MODE                    ; READ OR WRITE OR BOTH
                 STA SP_PAYLOAD+2
                 
+                ; FILL PAYLOAD - Character translation
                 LDA TRANSLATION             ; CHARACTER TRANSLATION
                 STA SP_PAYLOAD+3
 
+                ; FILL PAYLOAD - Transfer BASIC URL to payload
                 JSR CPY_URL_TO_SP_PAYLOAD   ; TRANSFER THE URL
-
-                PLA                         ; GET BACK OUR DEVICE NUMBER
-                TAX
-                LDY #'O'                    ; SEND 'O' TO FUJINET
-                JSR SP_CONTROL
-                BCS CTRL_ERR
 
 .IF .NOT STRIP_TRACE
                 SAVE_REGS
@@ -144,12 +151,22 @@ NO_TRACE20:
                 JSR PRINT_X
                 
                 PRINT_STR PAYLOAD_STR_ADDR
-                JSR PRINT_SP_PAYLOAD    ; PRINT THE URL
+                JSR PRINT_SP_PAYLOAD2    ; PRINT THE URL
                 JSR CROUT
 NO_TRACE21:              
                 RESTORE_REGS
 .ENDIF
 
+                PLA                         ; GET BACK OUR DEVICE NUMBER
+                TAX
+
+                ; STAGE #3
+                ; CALL FUJINET OPEN
+                LDY #'O'                    ; SEND 'O' TO FUJINET
+                JSR SP_CONTROL
+                BCS CTRL_ERR
+
+                LDX #FN_OK
 
                 RTS
 CTRL_ERR:
@@ -170,6 +187,100 @@ OPEN_ERR_DONE:
                 RTS
 
 ;******************************************************************
+; FN_READ
+; Read the specified UNIT
+;
+; INPUT
+; X = UNIT DESTINATION
+;******************************************************************
+
+;int8_t sp_read(uint8_t dest, uint16_t len)
+;{
+;  sp_error = 0;
+;  // sp_dest = 5; // need to search
+;  // build the command list
+;  sp_cmdlist[0] = SP_READ_PARAM_COUNT; 
+;  sp_cmdlist[1] = dest; // set before calling sp_status();
+;  sp_cmdlist[2] = (uint8_t)((uint16_t)&sp_payload & 0x00FF);
+;  sp_cmdlist[3] = (uint8_t)((uint16_t)&sp_payload >> 8) & 0xFF;
+;  sp_cmdlist[4] = len & 0xFF;
+;  sp_cmdlist[5] = len >> 8;
+;  
+;  sp_cmdlist_low = (uint8_t)((uint16_t)&sp_cmdlist & 0x00FF);
+;  sp_cmdlist_high = (uint8_t)((uint16_t)&sp_cmdlist >> 8) & 0xFF;;;
+;
+;  // store cmd list
+;  __asm__ volatile ("lda #%b", SP_CMD_READ);
+;  __asm__ volatile ("sta %g", spCmd); // store status command #
+;  __asm__ volatile ("lda %v", sp_cmdlist_low);
+;  __asm__ volatile ("sta %g", spCmdListLow); // store status command #
+;  __asm__ volatile ("lda %v", sp_cmdlist_high);
+;  __asm__ volatile ("sta %g", spCmdListHigh); // store status command #
+;  
+;  __asm__ volatile ("jsr $C50D"); // to do - find entry point and used it instead of hardcoded address
+;spCmd:
+;  __asm__ volatile ("nop");
+;spCmdListLow:
+;  __asm__ volatile ("nop");
+;spCmdListHigh:
+;  __asm__ volatile ("nop");
+;  __asm__ volatile ("sta %v", sp_err);
+;  sp_error = sp_err;
+;  return sp_err;
+;}
+
+FN_READ:
+
+.IF .NOT STRIP_TRACE
+                SAVE_REGS
+                LDA TRACE_FLAG
+                BEQ NO_TRACE22
+                TXA
+                PHA
+                PRINT_STR FN_READ_STR_ADDR
+                LDA #':'
+                JSR COUT
+                PRINT_STR UNIT_STR_ADDR
+                PLA
+                TAX
+                JSR PRTX
+                JSR CROUT
+NO_TRACE22:                
+                RESTORE_REGS
+.ENDIF
+
+                TXA
+                PHA
+                
+
+                LDY #$00                ; PAYLOAD SIZE = ZERO
+                STY SP_PAYLOAD
+                STY SP_PAYLOAD+1
+                
+
+                LDY #'R'                ; SEND 'C' TO FUJINET
+                JSR SP_CONTROL
+                BCC CLOSE_OK
+
+                PLA
+                LDX #$FF
+
+.IF .NOT STRIP_TRACE                
+                PRINT_STR CLOSE_ERROR_STR_DATA
+.ENDIF
+
+                CLC
+                BCC CLOSE_DONE
+CLOSE_OK:
+                PLA
+                TAX
+                JSR SP_CLOSE
+
+                LDX #FN_OK
+CLOSE_DONE:
+                RTS
+
+;******************************************************************
 ; FN_CLOSE
 ; Close the specified UNIT
 ;
@@ -185,7 +296,7 @@ FN_CLOSE:
                 TXA
                 PHA
                 PRINT_STR FN_CLOSE_STR_ADDR
-                LDA #' '
+                LDA #':'
                 JSR COUT
                 PRINT_STR UNIT_STR_ADDR
                 PLA
@@ -198,17 +309,31 @@ NO_TRACE22:
 
                 TXA
                 PHA
-                JSR SP_CLOSE
                 
-                LDY #$00                ; PAYLOAD SIZE = $102 = 258 BYTES
+                LDY #$00                ; PAYLOAD SIZE = ZERO
                 STY SP_PAYLOAD
                 STY SP_PAYLOAD+1
                 
-                PLA                     ; GET BACK OUR DEVICE NUMBER
-                TAX
                 LDY #'C'                ; SEND 'C' TO FUJINET
                 JSR SP_CONTROL
+                BCC CLOSE_OK
 
+                PLA
+                LDX #$FF
+
+.IF .NOT STRIP_TRACE                
+                PRINT_STR CLOSE_ERROR_STR_DATA
+.ENDIF
+
+                CLC
+                BCC CLOSE_DONE
+CLOSE_OK:
+                PLA
+                TAX
+                JSR SP_CLOSE
+
+                LDX #FN_OK
+CLOSE_DONE:
                 RTS
 
 
@@ -218,6 +343,8 @@ NO_TRACE22:
 ;
 ; INPUT
 ; X = UNIT DESTINATION
+; RETURN
+; A = 1 IF CONNECTED, 0 IF NOT
 ;******************************************************************
 ; X = DEVICE
 FN_IS_CONNECTED:
@@ -279,8 +406,10 @@ NO_TRACE24:
 .ENDIF
                 LDY #'S'
                 JSR SP_STATUS
+
                 LDA SP_PAYLOAD
                 LDY SP_PAYLOAD+1
+
                 RTS
         
 ;******************************************************************
@@ -303,9 +432,34 @@ NO_TRACE25:
                 RESTORE_REGS
 .ENDIF
 
+                LDA BASIC_UNIT
+                CMP #$01
+                BPL MULTI_NETWORK
+
+                ; LOOK FOR "NETWORK"
                 LDA NETWORK_STR_ADDR+1
                 LDY NETWORK_STR_ADDR
             
-                JSR SP_FIND_DEVICE
+                JSR SP_FIND_DEVICE          ; LOOK FOR "NETWORK"
+                CPX #$FF
+                BNE FIND_COMPLETED
+
+MULTI_NETWORK:
+
+                ; LOOK FOR "NETWORK_X"
+
+                LDA BASIC_UNIT
+                CLC
+                ADC #'0'
+                
+                LDX NETWORK_STR_WITH_NUMBER_INDEX
+                STA NETWORK_STR_WITH_NUMBER,X
+
+                LDA NETWORK_STR_WITH_NUMBER_ADDR+1
+                LDY NETWORK_STR_WITH_NUMBER_ADDR
+
+                JSR SP_FIND_DEVICE              ; LOOK FOR "NETWORK_X" WHERE X IS 0-3
+
+FIND_COMPLETED:
 
                 RTS

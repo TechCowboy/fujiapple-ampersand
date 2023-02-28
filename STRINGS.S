@@ -22,6 +22,7 @@ RELOCATING_STR:                             .BYTE   $0D, "NEW HIMEM: ", $00
 
 OPEN_ERR_STR:                               .ASCIIZ "FN_OPEN: OPEN ERR"
 CTRL_ERR_STR:                               .ASCIIZ "FN_OPEN: CTRL ERR"
+
 .ENDIF
 
 ; THESE STRING ARE USED AFTER RELOCATING
@@ -30,19 +31,19 @@ CTRL_ERR_STR:                               .ASCIIZ "FN_OPEN: CTRL ERR"
 
 ; NOT NEEDED IF WE'RE NOT USING TRACE
 
-NOPEN_STR:                                  .BYTE "NOPEN", $0D, $00
+NOPEN_STR:                                  .BYTE "NOPEN ", $00
 trace000:
 NOPEN_STR_ADDR:                             .WORD NOPEN_STR
 
-NREAD_STR:                                  .BYTE "NREAD", $0D, $00
+NREAD_STR:                                  .BYTE "NREAD ", $00
 trace001:
 NREAD_STR_ADDR:                             .WORD NREAD_STR_ADDR
 
-NCLOSE_STR:                                 .BYTE "NCLOSE", $0D, $00
+NCLOSE_STR:                                 .BYTE "NCLOSE ",  $00
 trace002:
 NCLOSE_STR_ADDR:                            .WORD NCLOSE_STR, $0D, $00
 
-NSTATUS_STR:                                .BYTE "NSTATUS", $0D, $00
+NSTATUS_STR:                                .BYTE "NSTATUS ", $00
 trace003:
 NSTATUS_STR_ADDR:                           .WORD NSTATUS_STR
 
@@ -102,7 +103,7 @@ DISPLAY_SP_STATUS_STR:                      .BYTE "DISPLAY_SP_STATUS", $0D, $00
 trace017:
 DISPLAY_SP_STATUS_STR_ADDR:                 .WORD DISPLAY_SP_STATUS_STR
 
-SP_FIND_DEVICE_STR:                         .BYTE "SP_FIND_DEVICE",    $00
+SP_FIND_DEVICE_STR:                         .BYTE "SP_FIND_DEVICE:",    $00
 trace018:
 SP_FIND_DEVICE_STR_ADDR:                    .WORD SP_FIND_DEVICE_STR
 
@@ -151,12 +152,26 @@ TRANS_STR:                                  .ASCIIZ "TRANS: "
 trace032:
 TRANS_STR_ADDR:                             .WORD TRANS_STR
 
-PAYLOAD_STR:                                .BYTE $0D, "PAYLOAD:", $0D, $00
+LEN_STR:                                    .ASCIIZ "LEN:"
 trace033:
+LEN_STR_ADDR:                               .WORD LEN_STR
+
+PAYLOAD_STR:                                .BYTE "PAYLOAD:", $00
+trace034:
 PAYLOAD_STR_ADDR:                           .WORD PAYLOAD_STR
 
-.ENDIF
+FOUND_DEVICE_STR:                           .BYTE "FOUND DEVICE!", $0D, $00
+trace035:
+FOUND_DEVICE_STR_ADDR:                      .WORD FOUND_DEVICE_STR
 
+CLOSE_ERROR_STR:                            .BYTE "CLOSE ERROR", $00
+trace036:
+CLOSE_ERROR_STR_DATA:                       .WORD CLOSE_ERROR_STR
+
+FN_READ_STR:                                .BYTE "FN_READ", $00
+trace037:       
+FN_READ_STR_ADDR:                           .WORD FN_READ_STR
+.ENDIF
 
 NOT_OPENED_STR:                             .ASCIIZ "UNIT NOT OPENED!"
 str000:
@@ -218,12 +233,22 @@ NETWORK_STR:                                .ASCIIZ "NETWORK"
 str014:
 NETWORK_STR_ADDR:                           .WORD NETWORK_STR
 
-DEVICE_NOT_FOUND_STR:                       .ASCIIZ "DEVICE NOT FOUND!"
+NETWORK_STR_WITH_NUMBER:                    .ASCIIZ "NETWORK_0"
 str015:
+NETWORK_STR_WITH_NUMBER_ADDR:               .WORD NETWORK_STR_WITH_NUMBER
+NETWORK_STR_WITH_NUMBER_INDEX:              .BYTE 8
+
+DEVICE_NOT_FOUND_STR:                       .ASCIIZ "DEVICE NOT FOUND!"
+str016:
 DEVICE_NOT_FOUND_STR_ADDR:                  .WORD DEVICE_NOT_FOUND_STR
+
+NETWORK_NOT_FOUND_STR:                      .ASCIIZ "NETWORK DEVICE NOT FOUND!"
+str017:
+NETWORK_NOT_FOUND_STR_ADDR:                 .WORD NETWORK_NOT_FOUND_STR
 
 ; NOT A STRING, BUT NEEDED ANYWAY
 .IF .NOT USE_SP
+
 trace030:
 FAKE_DISPATCHER_ADDR:                       .WORD FAKE_DISPATCHER
 
