@@ -88,8 +88,9 @@ INTERFACEVER:   .WORD   $FFFF           ; INTERFACE VERSION
 SP_COUNT:       .WORD   $FFFF           ; BYTES IN PAYLOAD?
 
 relocatesp01:
-SP_PAYLOAD_ADDR:.WORD  SP_PAYLOAD
-
+SP_PAYLOAD_ADDR:        .WORD  SP_PAYLOAD
+relocatesp02:
+SP_PAYLOAD_STR_ADDR:    .WORD  SP_PAYLOAD+5
 
 
 SLOT_ADDR		=	ZP2
@@ -319,7 +320,7 @@ NO_TRACE12:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_OPEN
-relocatesp02:   .WORD CMD_LIST
+relocatesp03:   .WORD CMD_LIST
                 
                 BCS OPEN_ERROR
 
@@ -366,7 +367,7 @@ NO_TRACE13:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_CLOSE
-relocatesp03:   .WORD CMD_LIST
+relocatesp04:   .WORD CMD_LIST
                 
                 BCS CLOSE_ERROR
 
@@ -459,7 +460,7 @@ NO_TRACE14:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_CONTROL
-relocatesp04:   .WORD CMD_LIST
+relocatesp05:   .WORD CMD_LIST
                 
                 BCS CTRL_ERROR
                 BCC SP_CTRL_DONE
@@ -497,41 +498,6 @@ SP_CTRL_DONE:
 ;byte count: This parameter contains the number of bytes to be read 
 ;address pointer: This parameter contains the block address of the target block.
 ;******************************************************************
-
-;int8_t sp_read(uint8_t dest, uint16_t len)
-;{
-;  sp_error = 0;
-;  // sp_dest = 5; // need to search
-;  // build the command list
-;  sp_cmdlist[0] = SP_READ_PARAM_COUNT; 
-;  sp_cmdlist[1] = dest; // set before calling sp_status();
-;  sp_cmdlist[2] = (uint8_t)((uint16_t)&sp_payload & 0x00FF);
-;  sp_cmdlist[3] = (uint8_t)((uint16_t)&sp_payload >> 8) & 0xFF;
-;  sp_cmdlist[4] = len & 0xFF;
-;  sp_cmdlist[5] = len >> 8;
-;  
-;  sp_cmdlist_low = (uint8_t)((uint16_t)&sp_cmdlist & 0x00FF);
-;  sp_cmdlist_high = (uint8_t)((uint16_t)&sp_cmdlist >> 8) & 0xFF;;;
-;
-;  // store cmd list
-;  __asm__ volatile ("lda #%b", SP_CMD_READ);
-;  __asm__ volatile ("sta %g", spCmd); // store status command #
-;  __asm__ volatile ("lda %v", sp_cmdlist_low);
-;  __asm__ volatile ("sta %g", spCmdListLow); // store status command #
-;  __asm__ volatile ("lda %v", sp_cmdlist_high);
-;  __asm__ volatile ("sta %g", spCmdListHigh); // store status command #
-;  
-;  __asm__ volatile ("jsr $C50D"); // to do - find entry point and used it instead of hardcoded address
-;spCmd:
-;  __asm__ volatile ("nop");
-;spCmdListLow:
-;  __asm__ volatile ("nop");
-;spCmdListHigh:
-;  __asm__ volatile ("nop");
-;  __asm__ volatile ("sta %v", sp_err);
-;  sp_error = sp_err;
-;  return sp_err;
-;}
 SP_READ:
 
 .IF .NOT STRIP_TRACE
@@ -557,13 +523,13 @@ NO_TRACE15:
                 LDA #SP_READ_PARAM_COUNT
                 STA CMD_LIST_PCOUNT             ; [0] PARAMETER COUNT
                 STX CMD_LIST_DEST               ; [1] DESTINATION DEVICE
-                STY CMD_LIST_LEN_HI             ; [4] LENGTH
+                STY CMD_LIST_LEN_LO             ; [4] LENGTH
                 LDA #$00
-                STY CMD_LIST_LEN_LO             ; [5]
+                STY CMD_LIST_LEN_HI             ; [5]
                 JSR CALL_DISPATCHER
 
-                .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
-relocatesp05:   .WORD CMD_LIST
+                .BYTE SP_CMD_READ               ; READ CALL COMMAND NUMBER
+relocatesp06:   .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT
@@ -580,7 +546,6 @@ ERROR:
 
 SP_READ_DONE:
 
-                JSR PRINT_SP_PAYLOAD2
                 CLC
                 RTS
 
@@ -637,7 +602,7 @@ NO_TRACE15:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
-relocatesp06:   .WORD CMD_LIST
+relocatesp07:   .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT
@@ -705,7 +670,7 @@ NO_TRACE15:
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
-relocatesp07:   .WORD CMD_LIST
+relocatesp08:   .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT

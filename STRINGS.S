@@ -25,6 +25,7 @@ CTRL_ERR_STR:                               .ASCIIZ "FN_OPEN: CTRL ERR"
 
 TEST_BLOCK_STR:
     .BYTE "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt "
+    .BYTE $00
     .BYTE "labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco "
     .BYTE "laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in "
     .BYTE "voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat "

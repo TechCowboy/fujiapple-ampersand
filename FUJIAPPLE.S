@@ -49,7 +49,7 @@ USE_SP     = 1  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
 SMALL_TEST = 0  ; Test only one small portion of FujiNet
 
 
-START      = $4000
+START      = $2000
 
 
 .IF PRODOS
@@ -644,22 +644,22 @@ NO_TRACE3:
                 JSR CHKCOM
                 JSR PTRGET    ; GET THE STRING
 
+;Returns the address of variable contents in A-reg (high) and Y-reg (low), 
+;as well as in VARPTR at $83.84. If a variable does not exist, it
+;is created. TXTPTR points to the next character. 
+
+                LDA VARPTR
+                STA STR_DSC_LEN
+                LDA VARPTR+1
+                STY STR_DSC_LO
+                LDA VARPTR+2
+                STA STR_DSC_HI
+
                 JSR CHKCOM
                 JSR GETBYT    ; GET THE LENGTH
                 STX BUFLEN
                 TXA
 
-                JSR STRINI    ; CREATE NEW STRING OF LENGTH A
-
-                LDY #0
-                LDA DSCTMP    ; COPY NEW DESCRIPTON
-                STA (VARPTR),Y
-                INY
-                LDA DSCTMP+1  ; LOCATION OF NEW BUFFER
-                STA (VARPTR),Y
-                INY
-                LDA DSCTMP+2
-                STA (VARPTR),Y
 
                 LDX BASIC_UNIT
                 LDA NETWORK,X
@@ -677,29 +677,44 @@ UNIT_OK2:
                 CPX #$FF
                 BEQ NREAD_ERROR
                 
-                JSR PRINT_SP_PAYLOAD2       ; PRINT WHAT'S IN THE BUFFER
 
                 ; MOVSTR
                 ; Source must be in Y(HI) and X(LO)
                 ; Destination must be in FRESPC ($71,$72)
 
+                LDA STR_DSC_LEN
+                STA VARPTR
+                LDA STR_DSC_LO
+                STA VARPTR+1
+                LDA STR_DSC_HI
+                STA VARPTR+2
+
+                LDA BUFLEN
+                JSR STRINI    ; CREATE NEW STRING OF LENGTH A
+
+                LDY #$00
+                LDA DSCTMP      ; DESCRIPTOR FOR NEW STRING
+                STA (VARPTR),Y 
+                INY
+                LDA DSCTMP+1
+                STA (VARPTR),Y 
+                INY
                 LDA DSCTMP+2
-                STA FRESPC+1
+                STA (VARPTR),Y
 
-                LDX DSCTMP+1
-                STX FRESPC
+                ;JSR PRTAX
+                ;JSR CROUT
 
-                JSR PRTAX
-                JSR CROUT
+                ;LDA SP_PAYLOAD_STR_ADDR+1
+                ;LDX SP_PAYLOAD_STR_ADDR
+                ;JSR PRTAX
+                ;JSR CROUT
 
-                LDY SP_PAYLOAD_ADDR+1
-                LDX SP_PAYLOAD_ADDR
-
-                LDY #>TEST_BLOCK_STR
-                LDX #<TEST_BLOCK_STR
-
-
-                JSR   MOVSTR    ; COPY BUFFER TO STRING (VAR$)
+                LDA BUFLEN
+                LDY SP_PAYLOAD_STR_ADDR+1
+                LDX SP_PAYLOAD_STR_ADDR
+                JSR MOVSTR    ; COPY BUFFER TO STRING (VAR$)
+                
                 RTS
 NREAD_ERROR:
 
@@ -1060,39 +1075,43 @@ trace029:    .WORD   NNOTRACE-1
 ;*******************************************
 ;* END OF TABLE
 ;*******************************************
-                .BYTE   00              ; END OF TABLE
+                .BYTE   00      ; END OF TABLE
 
 .IF .NOT STRIP_TRACE            
 TRACE_FLAG:     .BYTE   $01
 .ENDIF
 RELOC_SIZE:     .BYTE   $0D
 
-PREVECT:        .RES 3                  ; JUMP TO CONTENTS OF THE PREVIOUS AMPERSAND VECTOR
-OLDHIMEM:       .RES 2                  ; VALUE OF ORIGINAL HIMEM
+PREVECT:        .RES    3       ; JUMP TO CONTENTS OF THE PREVIOUS AMPERSAND VECTOR
+OLDHIMEM:       .RES    2       ; VALUE OF ORIGINAL HIMEM
 
 
 
 ;***************************************
-BASIC_UNIT:     .BYTE         0         ; BASIC UNIT 0-4 NOT FUJINET UNIT
-MODE:           .BYTE         0         ; 4=READ ONLY, 6=READ DIRECTORY, 8= WRITE ONLY, 12=READ/WRITE, 13= HTTP POST
-TRANSLATION:    .BYTE         0         ; 0 = NO TRANSLATION, 1=CR to ATASCII EOL, 2=LF to ATASCII EOL, 3=CR/LF to ATASCII EOL
-URL_LEN:        .BYTE         0
-URL:            .RES          255       
+BASIC_UNIT:     .BYTE   0       ; BASIC UNIT 0-4 NOT FUJINET UNIT
+MODE:           .BYTE   0       ; 4=READ ONLY, 6=READ DIRECTORY, 8= WRITE ONLY, 12=READ/WRITE, 13= HTTP POST
+TRANSLATION:    .BYTE   0       ; 0 = NO TRANSLATION, 1=CR to ATASCII EOL, 2=LF to ATASCII EOL, 3=CR/LF to ATASCII EOL
+URL_LEN:        .BYTE   0
+URL:            .RES    255       
 relocate009:
-URL_ADDR:       .WORD         URL
-COMMAND:        .BYTE         0         ; FUJINET COMMAND
-BASIC_PAYLOAD:  .RES          255       ; PAYLOAD TO SEND
-BW:             .WORD         0         ; BYTES WAITING
-CONNECT:        .BYTE         0         ; 1=CONNECTED
-NERR:           .BYTE         0         ; LAST ERROR
-BUFLEN:         .BYTE         0
-BUF:            .RES          255       ; GENERIC BUFFER FOR READ/WRITE
-STRADDR:        .WORD         0
-STRLEN:         .BYTE         0
-STRBUF:         .RES          255
+URL_ADDR:       .WORD   URL
+COMMAND:        .BYTE   0       ; FUJINET COMMAND
+BASIC_PAYLOAD:  .RES    255     ; PAYLOAD TO SEND
+BW:             .WORD   0       ; BYTES WAITING
+CONNECT:        .BYTE   0       ; 1=CONNECTED
+NERR:           .BYTE   0       ; LAST ERROR
+BUFLEN:         .BYTE   0
+BUF:            .RES    255     ; GENERIC BUFFER FOR READ/WRITE
+STRADDR:        .WORD   0
+STRLEN:         .BYTE   0
+STRBUF:         .RES    255
 relocate010:
-STRBUF_ADDR:    .WORD         STRBUF
-NETWORK:        .BYTE         $FF, $FF, $FF, $FF ; BASIC UNIT INDEX TO ACTUAL UNIT
+STRBUF_ADDR:    .WORD   STRBUF
+NETWORK:        .BYTE   $FF, $FF, $FF, $FF ; BASIC UNIT INDEX TO ACTUAL UNIT
+
+STR_DSC_LEN:    .BYTE   0
+STR_DSC_LO:     .BYTE   0
+STR_DSC_HI:     .BYTE   0
 
 .include "STRINGS.S"
 
@@ -1111,7 +1130,7 @@ RELOCATION_TABLE:
 .include "STR_RELOC.S"
 
 .IF USE_SP
-               .WORD    relocatesp00,relocatesp01,relocatesp02,relocatesp03,relocatesp04,relocatesp05,relocatesp06,relocatesp07;,relocatesp08,relocatesp09
+               .WORD    relocatesp00,relocatesp01,relocatesp02,relocatesp03,relocatesp04,relocatesp05,relocatesp06,relocatesp07,relocatesp08;,relocatesp09
 .ELSE
                 .WORD   relocatefsp00
 .ENDIF

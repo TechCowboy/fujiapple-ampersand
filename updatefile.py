@@ -5,7 +5,7 @@ from subprocess import Popen, PIPE
 import datetime
 
 filename   = [ "FUJIAPPLE"]
-pconvert   = [ 0x4000 ]
+pconvert   = [ 0x2000 ]
 pfilenames = [ "FUJIAPPLE"  ]
 pfilenamed = [ "FUJIAPPLE" ]
 dosdisk   = "FUJIAPPLE.dsk"
@@ -17,6 +17,8 @@ checked = False
 
 my_speed = 0.1
 tab_speed = 0.2
+
+debug = False
 
 def erase_field():
     
@@ -30,23 +32,28 @@ def erase_field():
 
 def do_tabs(count):
     for i in range(count):
-        print(f"{i+1}/{count} tab ", end='')
+        if debug:
+            print(f"{i+1}/{count} tab ", end='')
         p.press("tab")
         time.sleep(tab_speed)
-    print()
+    if debug:
+        print()
     time.sleep(my_speed)
     
 def find_file(file):
     global checked
     
-    print(f"find_file {file}")
+    if debug:
+        print(f"find_file {file}")
     
-    print("alt-e")
+    if debug:
+        print("alt-e")
     p.press("alt")
     time.sleep(my_speed)
     p.press("E")
     time.sleep(my_speed)
-    print("F")
+    if debug:
+        print("F")
     p.press("F")
     time.sleep(my_speed)
     
@@ -57,13 +64,15 @@ def find_file(file):
 
     erase_field()
         
-    print(f"Searching for '{file}'")    
+    if debug:
+        print(f"Searching for '{file}'")    
     p.write(file)
 
     time.sleep(my_speed)
     if not checked:
-        print("not checked")
-        print("alt-w")
+        if debug:
+            print("not checked")
+            print("alt-w")
         p.keyDown("alt")
         p.press("W")
         p.keyUp("alt")
@@ -72,7 +81,8 @@ def find_file(file):
         checked = True 
         
     else:
-        print("already checked")
+        if debug:
+            print("already checked")
 
     p.keyDown("alt")
     p.press("F")
@@ -86,13 +96,15 @@ def add_file(files):
 
     for file in files:
     
-        print(f"add_file {file}")
+        if debug:
+            print(f"add_file {file}")
         
-        print("alt-a")
+            print("alt-a")
         p.press("alt")
         p.press("A")
         time.sleep(my_speed)
-        print("F")
+        if debug:
+            print("F")
         p.press("F")
         time.sleep(0.4)
         
@@ -104,7 +116,8 @@ def add_file(files):
         erase_field()
         time.sleep(my_speed)
         
-        print(f"add file '{file}'")
+        if debug:
+            print(f"add file '{file}'")
         p.write(file)
 
         time.sleep(my_speed)
@@ -118,14 +131,16 @@ def prodos_bin_file(files, address):
     for file in files:
         find_file(file)
         
-        print(f"bin_file {file}")
+        if debug:
+            print(f"bin_file {file}")
         
-        print("alt-a")
+            print("alt-a")
         p.press("alt")
         p.press("A")
         time.sleep(my_speed)
         
-        print("a")
+        if debug:
+            print("a")
         p.press("a")
         time.sleep(my_speed)
         
@@ -155,11 +170,13 @@ def prodos_bin_file(files, address):
         p.write(address)
         time.sleep(my_speed)
         
-        print("enter")
+        if debug:
+            print("enter")
         p.press("enter")
         time.sleep(my_speed)
         
-        print("enter")
+        if debug:
+            print("enter")
         p.press("enter")
         time.sleep(0.5)
 
@@ -168,37 +185,45 @@ def dos_bin_file(files):
     for file in files:
         find_file(file)
         
-        print(f"bin_file {file}")
+        if debug:
+            print(f"bin_file {file}")
         
-        print("alt-a")
+            print("alt-a")
         p.press("alt")
         p.press("A")
         time.sleep(my_speed)
-        print("a")
+        if debug:
+            print("a")
         p.press("a")
         time.sleep(my_speed)
            
         do_tabs(4)
         
         for i in range(10):
-            print(f"{i+1}/10 up ", end='')
+            if debug:
+                print(f"{i+1}/10 up ", end='')
             p.press("up")
             time.sleep(tab_speed)
-        print()
+        if debug:
+            print()
         
         for i in range(1):
-            print(f"{i+1}/1 down ", end='')
+            if debug:
+                print(f"{i+1}/1 down ", end='')
             p.press("down")
             time.sleep(my_speed)
-        print()
+        if debug:
+            print()
         
         p.press("tab")
         
-        print("enter")
+        if debug:
+            print("enter")
         p.press("enter")
         time.sleep(my_speed)
         
-        print("enter")
+        if debug:
+            print("enter")
         p.press("enter")
         time.sleep(0.5)
         
@@ -210,12 +235,14 @@ def del_file(files):
 
         find_file(file)
         
-        print(f"del_file {file}")
-        print("alt-a")
+        if debug:
+            print(f"del_file {file}")
+            print("alt-a")
         p.press("alt")
         p.press("A")
         time.sleep(my_speed)
-        print("d")
+        if debug:
+            print("d")
         p.press("d")
         time.sleep(0.5)
         
@@ -223,11 +250,13 @@ def del_file(files):
         p.sleep(0.5)
 
 def leave():
-    print("alt-f")
+    if debug:
+        print("alt-f")
     p.press("alt")
     p.press("F")
     time.sleep(my_speed)
-    print("E")
+    if debug:
+        print("E")
     p.press("E")
     time.sleep(my_speed)
         

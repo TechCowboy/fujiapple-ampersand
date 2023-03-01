@@ -258,9 +258,17 @@ COPY_STR:
 SP_CLOSE:
                 RTS
 SP_READ:
+                LDA #<TEST_BLOCK_STR
+                LDY #>TEST_BLOCK_STR
+                JSR CPY_STR_TO_SP_PAYLOAD
+                JSR PRINT_SP_PAYLOAD2
+                LDX #$00
+                CLC
                 RTS
 SP_CONTROL:
+                CLC
                 RTS
 SP_OPEN:        
+                CLC
                 RTS
 .ENDIF 

@@ -218,14 +218,13 @@ NO_TRACE22:
 .ENDIF
 
                 ; X= DEVICE
-                LDY #$00                ; PAYLOAD SIZE = MAX 255
-                LDY BUFLEN          
+                LDY BUFLEN              ; MAX PAYLOAD IS 255         
                 
                 JSR SP_READ
                 BCC READ_OK
 
                 LDX #$FF
-
+READ_ERR:
 .IF .NOT STRIP_TRACE                
                 PRINT_STR FN_READ_ERROR_STR_ADDR
 .ENDIF
