@@ -34,12 +34,9 @@ FN_ERR_CONNECTION_ABORTED = 211	    ;Connection Aborted
 FN_ERR_BAD_CREDENTIALS  = 212	    ;Invalid Username or Password (debating whether to overload as access denied.)
 FN_ERR_MEMORY_ERROR     = 255	    ;Could not allocate either receive or transmit buffers.
 
-;******************************************************************
-; CPY_URL_TO_SP_PAYLOAD
-; Copy the BASIC URL into the Smartport buffer
-;
+;******************************************************************;
 ; CPY_STR_TO_SP_PAYLOAD
-; Copy the zero terminated string to the Smartport buffer
+; Copy the length proceeded, zero terminated string to the Smartport buffer
 ;
 ; INPUT
 ;  A = high address
@@ -47,12 +44,6 @@ FN_ERR_MEMORY_ERROR     = 255	    ;Could not allocate either receive or transmit
 ; RETURNS
 ;  X = String length
 ;******************************************************************
-
-CPY_URL_TO_SP_PAYLOAD:
-
-                LDA URL_ADDR        ; STRING WITHOUT LENGTH
-                LDY URL_ADDR+1
-                
 CPY_STR_TO_SP_PAYLOAD:
                 STA ZP1_LO
                 STY ZP1_HI
@@ -80,6 +71,85 @@ GOT_LENGTH2:
                 RTS
 
 ;******************************************************************
+; CPY_URL_TO_SP_PAYLOAD
+; Copy the BASIC URL into the Smartport buffer as a zero
+; terminated string
+;
+; INPUT
+;  A = high address
+;  Y = low address
+; RETURNS
+;  X = String length
+;******************************************************************
+CPY_URL_TO_SP_PAYLOAD:
+
+                LDA URL_ADDR        ; STRING WITHOUT LENGTH
+                LDY URL_ADDR+1
+                
+                STA ZP1_LO
+                STY ZP1_HI
+                
+                LDX #$00
+                LDY #$00
+LOOK_FOR_NULL3:
+                LDA (ZP1),Y
+                STA SP_PAYLOAD+4,X 
+                BEQ GOT_LENGTH3
+                INY
+                INX
+                CLC
+                BCC LOOK_FOR_NULL3
+
+GOT_LENGTH3:
+                INX                     
+                LDA #$00                ; NULL TERMINATE STRING
+                STA SP_PAYLOAD+5,X
+
+;                TXA
+;                STA SP_PAYLOAD+4        ; STORE LENGTH
+
+;                TAX                     ; RETURN LENGTH
+                RTS
+
+;******************************************************************
+; CPY_BUF_TO_SP_PAYLOAD
+; Copy the BASIC URL into the Smartport buffer as a zero
+; terminated string
+;
+; INPUT
+;  A = high address
+;  Y = low address
+; RETURNS
+;  X = String length
+;******************************************************************
+CPY_BUF_TO_SP_PAYLOAD:
+                
+                STA ZP1_LO
+                STY ZP1_HI
+                
+                LDX #$00
+                LDY #$00
+LOOK_FOR_NULL4:
+                LDA (ZP1),Y
+                STA SP_PAYLOAD+4,X 
+                BEQ GOT_LENGTH4
+                INY
+                INX
+                CLC
+                BCC LOOK_FOR_NULL4
+
+GOT_LENGTH4:
+                INX                     
+                LDA #$00                ; NULL TERMINATE STRING
+                STA SP_PAYLOAD+5,X
+
+;                TXA
+;                STA SP_PAYLOAD+4        ; STORE LENGTH
+
+;                TAX                     ; RETURN LENGTH
+                RTS
+
+;******************************************************************
 ; FN_OPEN
 ; Open the specified UNIT, gets it ready for reading or writing
 ; 
@@ -95,14 +165,12 @@ FN_OPEN:
                 LDA TRACE_FLAG
                 BEQ NO_TRACE20
                 PRINT_STR FN_OPEN_STR_ADDR
-                LDA #':'
-                JSR COUT
                 PRINT_STR UNIT_STR_ADDR
                 PLA
                 PHA
                 TAX
                 JSR PRTX
-                LDA #' '
+                LDA #SPACE
                 JSR COUT
 
 NO_TRACE20:     
@@ -116,11 +184,30 @@ NO_TRACE20:
                 ; STAGE #1
                 ; OPEN THE DEVICE #X
                 JSR SP_OPEN 
-                BCS OPEN_ERR
+                BCC CONT2
+OPEN_ERR:
+                LDA #<OPEN_ERR_STR
+                LDY #>OPEN_ERR_STR
 
+                JSR STROUT
+                JSR CROUT
+                PLA
+                SEC
+                LDX #FN_ERR_NETWORK_DOWN
+                RTS
+
+CONT2:
                 PLA                         ; GET BACK UNIT NUMBER
                 PHA
                 TAX
+
+; FUJINET SPECIFC
+;Byte   Definition
+; 'O'-open
+;0-1    payload size
+;2      mode read or write or both
+;3      translation
+;4...   url
 
                 ; STAGE #2
                 ; SET PAYLOAD SIZE
@@ -154,7 +241,7 @@ NO_TRACE20:
                 JSR PRINT_X
                 
                 PRINT_STR PAYLOAD_STR_ADDR
-                JSR PRINT_SP_PAYLOAD2    ; PRINT THE URL
+                JSR DUMP_SP_PAYLOAD        ; PRINT THE URL
                 JSR CROUT
 NO_TRACE21:              
                 RESTORE_REGS
@@ -167,27 +254,41 @@ NO_TRACE21:
                 ; CALL FUJINET OPEN
                 LDY #'O'                    ; SEND 'O' TO FUJINET
                 JSR SP_CONTROL
-                BCS CTRL_ERR
-
-                LDX #FN_OK
-
-                RTS
+                BCC READ_OK2
 CTRL_ERR:
                 LDA #<CTRL_ERR_STR
                 LDY #>CTRL_ERR_STR
-                CLC
-                BCC OPEN_ERR_DONE
-OPEN_ERR:
-                LDA #<OPEN_ERR_STR
-                LDY #>OPEN_ERR_STR
-
-OPEN_ERR_DONE:
                 JSR STROUT
                 JSR CROUT
-                PLA
                 SEC
                 LDX #FN_ERR_NETWORK_DOWN
                 RTS
+
+READ_OK2:
+                LDX #FN_OK
+                RTS
+
+
+;
+; 'C'-close
+;0-1    payload size $00
+;
+;'R'
+;0-1   payload size (bytes to return)
+;2..   data
+;
+;'W'
+; 0-1  payload size (bytes to write)
+; 2..  data
+;
+;'A'
+; accept connection
+;
+; 'c'
+; close client connection
+;
+;'D'
+; set UDP destination
 
 ;******************************************************************
 ; FN_READ
@@ -206,35 +307,45 @@ FN_READ:
                 TXA
                 PHA
                 PRINT_STR FN_READ_STR_ADDR
-                LDA #':'
-                JSR COUT
                 PRINT_STR UNIT_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
                 JSR CROUT
 NO_TRACE22:                
-                RESTORE_REGS
-.ENDIF
 
-                ; X= DEVICE
+                JSR WIPE_PAYLOAD
+                RESTORE_REGS
+
+.ENDIF
+        PRINT_OUT HERE3
+        JSR PRINT_STACK
+                ; X = DEVICE
                 LDY BUFLEN              ; MAX PAYLOAD IS 255         
-                
                 JSR SP_READ
                 BCC READ_OK
 
                 LDX #$FF
 READ_ERR:
+
+
 .IF .NOT STRIP_TRACE                
                 PRINT_STR FN_READ_ERROR_STR_ADDR
+                JSR DUMP_SP_PAYLOAD
 .ENDIF
 
                 CLC
                 BCC READ_DONE
 READ_OK:
-
+    PRINT_OUT HERE4
+    JSR PRINT_STACK
+    PRINT_OUT HERE5
+    JSR DUMP_SP_PAYLOAD
+    
                 LDX #FN_OK
 READ_DONE:
+    PRINT_OUT HERE7
+    JSR PRINT_STACK
                 RTS
 
 ;******************************************************************
@@ -253,8 +364,6 @@ FN_CLOSE:
                 TXA
                 PHA
                 PRINT_STR FN_CLOSE_STR_ADDR
-                LDA #':'
-                JSR COUT
                 PRINT_STR UNIT_STR_ADDR
                 PLA
                 TAX
@@ -293,7 +402,6 @@ CLOSE_OK:
 CLOSE_DONE:
                 RTS
 
-
 ;******************************************************************
 ; FN_IS_CONNECTED
 ; Is this unit connected to a site
@@ -314,7 +422,6 @@ FN_IS_CONNECTED:
                 TXA
                 PHA
                 PRINT_STR FN_IS_CONNECTED_STR_ADDR
-                JSR COUT
                 PRINT_STR UNIT_STR_ADDR
                 PLA
                 TAX
@@ -350,7 +457,6 @@ FN_BYTES_WAITING:
                 TXA
                 PHA
                 PRINT_STR FN_BYTES_WAITING_STR_ADDR
-                JSR COUT
                 PRINT_STR UNIT_STR_ADDR
                 PLA
                 TAX

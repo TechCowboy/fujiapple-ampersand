@@ -39,14 +39,14 @@
 ; EXT_TRACE includes calls into the SMARTPORT routines
 
 STRIP_TRACE= 0  ; Eliminate all tracing code and strings
-EXT_TRACE  = 1  ; Extended Trace, 1=display SMARTPORT internal debug messages 
+EXT_TRACE  = 0  ; Extended Trace, 1=display SMARTPORT internal debug messages 
 EXT2_TRACE = 0  ; Extended Trace 2, display SP_STATUS and CALL_DISPATCHER
 RELOCATE   = 0  ; 1=relocate himem and put our code there
 PRODOS     = 1  ; 0=add dos 3.3 header
 APPLEII    = 1  ; always set to one, EQUs will be for apple zero page
 USE_SP     = 1  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
 
-SMALL_TEST = 0  ; Test only one small portion of FujiNet
+SMALL_TEST = 0  ; Test only one small specific code
 
 
 START      = $2000
@@ -102,7 +102,12 @@ NINIT:
         LDY #>TEST_STR
         JSR STROUT
 
-;        JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
+        JSR PRINT_STACK
+        BRK
+
+        JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
+
+        JSR FN_READ
 ;        
 ;        JSR FN_FIND_NETWORK
 ;        JSR FN_OPEN
@@ -111,7 +116,7 @@ NINIT:
         RTS
 
 TEST_STR:    
-        .BYTE "SMALL TEST MODE", $0D,$00
+        .BYTE "<><><><><>SMALL TEST MODE<><><><><><>", $0D,$00
 
 .ENDIF
 
@@ -628,10 +633,10 @@ NREAD:
 .IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE3
-                PRINT_STR NREAD_STR_ADDR      ; "NREAD"
+                PRINT_STR NREAD_STR_ADDR        ; "NREAD"
 NO_TRACE3:                
 .ENDIF
-                JSR   GETBYT    ; GET THE UNIT
+                JSR   GETBYT                    ; GET THE UNIT
                 STX   BASIC_UNIT
 
 .IF .NOT STRIP_TRACE
@@ -642,61 +647,62 @@ NO_TRACE3:
 .ENDIF
 
                 JSR CHKCOM
-                JSR PTRGET    ; GET THE STRING
+                JSR PTRGET                      ; GET THE STRING TO RECEIVED OUR DATA
 
 ;Returns the address of variable contents in A-reg (high) and Y-reg (low), 
 ;as well as in VARPTR at $83.84. If a variable does not exist, it
 ;is created. TXTPTR points to the next character. 
 
-                LDA VARPTR
-                STA STR_DSC_LEN
+                LDA VARPTR                      ; SAVE THE STRING DESCRIPTOR LOCATION 
+                STA STR_DSC_LEN                 ; FOR LATER
                 LDA VARPTR+1
                 STY STR_DSC_LO
                 LDA VARPTR+2
                 STA STR_DSC_HI
 
                 JSR CHKCOM
-                JSR GETBYT    ; GET THE LENGTH
+                JSR GETBYT                      ; GET THE NUMBER OF CHARACTESR TO READ 
                 STX BUFLEN
                 TXA
 
 
-                LDX BASIC_UNIT
+                LDX BASIC_UNIT                  ; CONVERT THE BASIC_UNIT TO THE FUJINET UNIT
                 LDA NETWORK,X
-                CMP #$FF
+                CMP #$FF                        ; $FF INDICATES IT WAS NEVER OPENED
                 BNE UNIT_OK2
 
                 PRINT_STR NOT_OPENED_STR_ADDR
                 JMP SYNERR
 
 UNIT_OK2:
-                LDX BASIC_UNIT
-                LDA NETWORK, X  ; THIS IS THE ACTUAL UNIT NUMBER
                 TAX 
-                JSR FN_READ
+                JSR FN_READ                     ; REQEST THE DATA FROM FUJINET
                 CPX #$FF
                 BEQ NREAD_ERROR
                 
+                ; TODO:
+                ; Adjust BUFLEN to the actual amount of
+                ; characters read
 
                 ; MOVSTR
                 ; Source must be in Y(HI) and X(LO)
                 ; Destination must be in FRESPC ($71,$72)
 
-                LDA STR_DSC_LEN
-                STA VARPTR
-                LDA STR_DSC_LO
+                LDA STR_DSC_LEN                 ; RESTORE THE STRING DESCRIPTOR
+                STA VARPTR                      ; THAT WE SAVED EARLIER SO WE
+                LDA STR_DSC_LO                  
                 STA VARPTR+1
                 LDA STR_DSC_HI
                 STA VARPTR+2
 
-                LDA BUFLEN
-                JSR STRINI    ; CREATE NEW STRING OF LENGTH A
+                LDA BUFLEN                      ; THIS IS THE ACTUAL NUMBER OF CHARS WE READ
+                JSR STRINI                      ; CREATE NEW STRING OF LENGTH A
 
                 LDY #$00
-                LDA DSCTMP      ; DESCRIPTOR FOR NEW STRING
-                STA (VARPTR),Y 
+                LDA DSCTMP                      ; DESCRIPTOR FOR NEW STRING
+                STA (VARPTR),Y                  ; UPDATE THE LENGTH
                 INY
-                LDA DSCTMP+1
+                LDA DSCTMP+1                    ; UPDATE THE LOCATION OF THE STRING
                 STA (VARPTR),Y 
                 INY
                 LDA DSCTMP+2
@@ -710,15 +716,15 @@ UNIT_OK2:
                 ;JSR PRTAX
                 ;JSR CROUT
 
-                LDA BUFLEN
-                LDY SP_PAYLOAD_STR_ADDR+1
-                LDX SP_PAYLOAD_STR_ADDR
-                JSR MOVSTR    ; COPY BUFFER TO STRING (VAR$)
+                LDA BUFLEN                      ; USE THE APPLESOFT ROUTINES TO
+                LDY SP_PAYLOAD_ADDR+1           ; MOVE THE PAYLOAD INTO THE
+                LDX SP_PAYLOAD_ADDR             ; ACTUAL STRING
+                JSR MOVSTR                      ; COPY BUFFER TO STRING (VAR$)
                 
                 RTS
 NREAD_ERROR:
 
-                PRINT_STR NREAD_ERROR_STR_ADDR
+                PRINT_STR NREAD_ERROR_STR_ADDR  ; THERE WAS AN ERROR READING
 
                 RTS
 ;*****************************************************
@@ -733,7 +739,7 @@ NWRITE:
                 PRINT_STR NWRITE_STR_ADDR       ; "NWRITE"
 NO_TRACE4:
 .ENDIF
-                JSR   GETBYT     ; GET UNIT
+                JSR   GETBYT                    ; GET UNIT
                 STX   BASIC_UNIT
 
 .IF .NOT STRIP_TRACE
@@ -744,20 +750,20 @@ NO_TRACE4:
 .ENDIF
 
                 JSR   CHKCOM
-                JSR   CHRGOT     ; WHAT ARE WE POINTING AT IN BASIC?
-                CMP   #QUOTE     ; IS IT A STATIC STRING?
+                JSR   CHRGOT                    ; WHAT ARE WE POINTING AT IN BASIC?
+                CMP   #QUOTE                    ; IS IT A STATIC STRING?
                 BNE   GETVAR
 
-                JSR   GETSTR     ; GET THE STATIC STRING
+                JSR   GETSTR                    ; GET THE STATIC STRING
                 CLC
                 BCC   STORE2
 
 GETVAR:
-                JSR   GETSTRVAR ; GET VAR$
+                JSR   GETSTRVAR                 ; GET VAR$
 
 STORE2:
                 JSR   CHKCOM
-                JSR   GETBYT     ; GET LENGTH
+                JSR   GETBYT                    ; GET LENGTH REQUESTED
                 STX   BUFLEN
 
                 LDY   BUFLEN
@@ -772,7 +778,7 @@ COPYBUF:
                 CMP #$FF
                 BNE UNIT_OK5
 
-                PRINT_STR NOT_OPENED_STR
+                PRINT_STR NOT_OPENED_STR_ADDR
                 JMP SYNERR
 
 UNIT_OK5:
@@ -1130,7 +1136,7 @@ RELOCATION_TABLE:
 .include "STR_RELOC.S"
 
 .IF USE_SP
-               .WORD    relocatesp00,relocatesp01,relocatesp02,relocatesp03,relocatesp04,relocatesp05,relocatesp06,relocatesp07,relocatesp08;,relocatesp09
+               .WORD    relocatesp00,relocatesp01,relocatesp02,relocatesp03,relocatesp04,relocatesp05,relocatesp06,relocatesp07;,relocatesp08,relocatesp09
 .ELSE
                 .WORD   relocatefsp00
 .ENDIF

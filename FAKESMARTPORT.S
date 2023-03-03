@@ -260,8 +260,7 @@ SP_CLOSE:
 SP_READ:
                 LDA #<TEST_BLOCK_STR
                 LDY #>TEST_BLOCK_STR
-                JSR CPY_STR_TO_SP_PAYLOAD
-                JSR PRINT_SP_PAYLOAD2
+                JSR CPY_BUF_TO_SP_PAYLOAD
                 LDX #$00
                 CLC
                 RTS

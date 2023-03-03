@@ -21,9 +21,20 @@ MACROS=1
 .ENDMACRO
 
 .MACRO PRINT_STR STR
+        SAVE_REGS
         LDA STR
         LDY STR+1
         JSR STROUT
+        RESTORE_REGS
 .ENDMACRO
+
+.MACRO PRINT_OUT STR
+        SAVE_REGS
+        LDA #<STR
+        LDY #>STR
+        JSR STROUT
+        RESTORE_REGS
+.ENDMACRO
+
 
 .ENDIF

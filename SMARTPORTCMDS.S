@@ -58,44 +58,169 @@ SP_CONTROL_PARAM_COUNT  =       3
 
 SP_ERROR_NOT_FOUND      =       SP_ERROR_NON_FATAL50
 
+
+
 SMARTPORT_DISPATCHER: 
 DISPATCHER_ADDR_LO:
-                .BYTE $00
+                        .BYTE $00
 DISPATCHER_ADDR_HI:
-                .BYTE $00
+                        .BYTE $00
 
 
-CMD_LIST:
-CMD_LIST_PCOUNT:.BYTE   $FF             ; PARAMETER COUNT
-CMD_LIST_DEST:  .BYTE   $FF             ; DESTINATION DEVICE NUMBER
-relocatesp00:
-CMD_LIST_RESULT:.WORD   SP_PAYLOAD      ; DATA RETURN HERE
-CMD_LIST_LEN_LO:                        ; LENGTH LOW BYTE
-CMD_LIST_STAT:  .BYTE   $FF             ; STATUS CODE
-CMD_LIST_LEN_HI:.BYTE   $FF             ; LENGTH HIGH BYTE
+
+CMD_LIST:               .RES 15               
 
 SP_PAYLOAD:
-DCOUNT:         .BYTE   $01             ; NUMBER OF DEVICES
-INTSTATE:       .BYTE   $FF             ; INTERRUPT STATUS (IF BIT 6 IS SET, THEN NO INTERRUPT)
-MANUFACTURER:   .WORD   $FFFF           ; DRIVER MANUFACTURER
-                                        ; $0000 - UNDETERMINED
-                                        ; $0001 - APPLE
-                                        ; $0002-$FFFF 3RD PARTY DRIVER
-INTERFACEVER:   .WORD   $FFFF           ; INTERFACE VERSION
-                .WORD   $0000           ; RESERVED (MUST BE $0000)
-                .RES    255             ; RESERVED FOR DATA
+DCOUNT:
+                        .BYTE   $01             ; NUMBER OF DEVICES
+INTSTATE:       
+                        .BYTE   $FF             ; INTERRUPT STATUS (IF BIT 6 IS SET, THEN NO INTERRUPT)
+MANUFACTURER:   
+                        .WORD   $FFFF           ; DRIVER MANUFACTURER
+                                                ; $0000 - UNDETERMINED
+                                                ; $0001 - APPLE
+                                                ; $0002-$FFFF 3RD PARTY DRIVER
+INTERFACEVER:   
+                        .WORD   $FFFF           ; INTERFACE VERSION
+                        .WORD   $0000           ; RESERVED (MUST BE $0000)
+                        .RES    255             ; RESERVED FOR DATA
 
-SP_COUNT:       .WORD   $FFFF           ; BYTES IN PAYLOAD?
+SP_COUNT:       
+                        .WORD   $FFFF           ; BYTES IN PAYLOAD?
 
+relocatesp00:
+SP_PAYLOAD_ADDR:        
+                        .WORD  SP_PAYLOAD
 relocatesp01:
-SP_PAYLOAD_ADDR:        .WORD  SP_PAYLOAD
-relocatesp02:
 SP_PAYLOAD_STR_ADDR:    .WORD  SP_PAYLOAD+5
 
 
 SLOT_ADDR		=	ZP2
 SLOT_ADDR_LO	    	=	ZP2_LO
 SLOT_ADDR_HI		=	ZP2_HI
+
+;*******************************
+; WIPE_PAYLOAD
+;   Clear the contents of the payload
+;**********************************
+
+WIPE_PAYLOAD:
+                SAVE_REGS
+
+                LDA #$A5
+
+                LDX #$00
+CLR:                
+                STA SP_PAYLOAD+4,X 
+                INX
+                CPX #16
+                BNE CLR
+
+                RESTORE_REGS
+                RTS
+
+;*******************************
+; PRINT_SP_PAYLOAD
+;   Display the ASCII contents
+; of the payload buffer
+;**********************************
+PRINT_SP_PAYLOAD:
+                SAVE_REGS
+
+                LDX #$00
+PPAYLOAD:   
+                LDA SP_PAYLOAD+4,X      ; STRING
+                ORA #$80
+                JSR COUT
+                INX
+                CPX #16
+                BNE PPAYLOAD
+
+                RESTORE_REGS
+PAYLOAD:
+                RTS
+
+;*******************************
+; DUMP_SP_PAYLOAD
+;   Display the HEX and ASCII contents
+; of the payload buffer
+;**********************************
+DUMPSIZE = 12
+
+DUMP_SP_PAYLOAD:
+        PRINT_OUT HERE1
+        JSR PRINT_STACK
+                JSR CROUT
+                LDX #$00
+PPAYLOAD0:   
+                TXA
+                PHA                     ; SAVE X PUSH +1
+
+                LDA SP_PAYLOAD+4,X      ; STRING
+                TAX
+                JSR PRINT_X
+
+                PLA                     ; RESTORE X -1
+                TAX
+
+                INX
+                CPX #DUMPSIZE
+                BNE PPAYLOAD0
+                JSR CROUT
+
+        JSR PRINT_STACK
+                LDX #$00
+PPAYLOAD1: 
+                TXA
+                PHA
+                LDA SP_PAYLOAD+4,X      ; STRING
+                ORA #$80                ; MAKE SURE THE HIGH BIT IS
+                JSR COUT                ; SET SO IT DOESN'T LOOK INVERSE
+                LDA #SPACE
+                JSR COUT
+                JSR COUT
+                PLA
+                TAX
+                INX
+                CPX #DUMPSIZE
+                BNE PPAYLOAD1
+
+                JSR CROUT
+        PRINT_OUT HERE2
+        JSR PRINT_STACK
+                RTS
+
+;**********************************
+DUMP_SP_PAYLOAD_STR:
+                SAVE_REGS
+
+                PRINT_STR LEN_STR_ADDR
+
+                LDA #'['
+                JSR COUT
+                LDX SP_PAYLOAD+4
+                JSR PRTX
+                LDA #']'
+                JSR COUT
+
+
+                LDX #$00
+PPAYLOAD2:  
+                TXA
+                PHA
+                LDA SP_PAYLOAD+5,X      ; STRING
+                ORA #$80
+                JSR COUT
+                PLA
+                TAX
+                INX
+                CPX SP_PAYLOAD+4
+                BNE PPAYLOAD2
+
+                JSR CROUT
+                RESTORE_REGS
+
+                RTS
 
 
 
@@ -293,34 +418,36 @@ SP_OPEN:
 .IF EXT_TRACE
                 SAVE_REGS
                 TXA
-                PHA
+                PHA                                     ; STACK +1
+
                 LDA TRACE_FLAG
                 BEQ NO_TRACE12
-                JSR CROUT
-                PRINT_STR SP_OPEN_STR_ADDR
-                LDA #':'
-                JSR COUT
 
-                PLA
-                PHA
+                JSR CROUT
+                PRINT_STR SP_OPEN_STR_ADDR              ; "SP_OPEN:"
+
+                PLA                                     ; STACK -1
+                PHA                                     ; STACK +1
                 TAX
                 JSR PRTX
                 JSR CROUT
-                JSR PRINT_SP_PAYLOAD2
+                JSR DUMP_SP_PAYLOAD_STR
                 JSR CROUT
 NO_TRACE12:          
-                PLA
+                PLA                                     ; STACK -1
+
                 RESTORE_REGS
+
 .ENDIF
 .ENDIF
 
                 LDA #SP_OPEN_PARAM_COUNT        ; 3
-                STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
-                STX CMD_LIST_DEST               ; DESTINATION DEVICE
+                STA CMD_LIST                    ; PARAMETER COUNT
+                STX CMD_LIST+1                  ; DESTINATION DEVICE
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_OPEN
-relocatesp03:   .WORD CMD_LIST
+relocatesp02:   .WORD CMD_LIST
                 
                 BCS OPEN_ERROR
 
@@ -353,31 +480,37 @@ SP_CLOSE:
 .IF .NOT STRIP_TRACE
 .IF EXT_TRACE
                 SAVE_REGS
+                TXA
+                PHA
                 LDA TRACE_FLAG
                 BEQ NO_TRACE13
                 PRINT_STR SP_CLOSE_STR_ADDR
-NO_TRACE13:                
+                PLA
+                PHA
+                TAX
+                JSR PRTX
+
+NO_TRACE13:     
+                PLA           
                 RESTORE_REGS
 .ENDIF
 .ENDIF
 
                 LDA #SP_CLOSE_PARAM_COUNT       ; 3
-                STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
-                STX CMD_LIST_DEST               ; DESTINATION DEVICE
+                STA CMD_LIST                    ; PARAMETER COUNT
+                STX CMD_LIST+1                  ; DESTINATION DEVICE
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_CLOSE
-relocatesp04:   .WORD CMD_LIST
+relocatesp03:   .WORD CMD_LIST
                 
                 BCS CLOSE_ERROR
 
                 BCC SP_CLOSE_DONE
 CLOSE_ERROR:
-                PHA
                 PRINT_STR SP_ERROR_STR_ADDR
 
-                PLA
-                TAX
+                LDX CMD_LIST+1
                 JSR PRTX
                 JSR CROUT
 
@@ -431,15 +564,14 @@ SP_CONTROL:
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE14
+
                 TXA
                 PHA
 
                 PRINT_STR SP_CONTROL_STR_ADDR
-                LDA #':'
-                JSR COUT
-                PRINT_STR UNIT_STR_ADDR
                 PLA
                 TAX
+                
                 JSR PRTX
                 LDA #'['
                 JSR COUT
@@ -455,12 +587,14 @@ NO_TRACE14:
 .ENDIF
 
                 LDA #SP_CONTROL_PARAM_COUNT     ; 3
-                STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
-                STX CMD_LIST_DEST               ; DESTINATION DEVICE
+                STA CMD_LIST                    ; PARAMETER COUNT
+                STX CMD_LIST+1                  ; DESTINATION DEVICE
+                ; OTHER ITEMS WILL NEED TO BE
+                ; SET BEFORE CALLING THIS ROUTINE
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_CONTROL
-relocatesp05:   .WORD CMD_LIST
+relocatesp04:   .WORD CMD_LIST
                 
                 BCS CTRL_ERROR
                 BCC SP_CTRL_DONE
@@ -501,14 +635,14 @@ SP_CTRL_DONE:
 SP_READ:
 
 .IF .NOT STRIP_TRACE
-.IF EXT2_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE15
                 TXA
                 PHA
                 PRINT_STR SP_READ_STR_ADDR
-                LDA #':'
+                LDA #COLON
                 JSR COUT
                 PRINT_STR UNIT_STR_ADDR
                 PLA
@@ -519,34 +653,42 @@ NO_TRACE15:
                 RESTORE_REGS
 .ENDIF
 .ENDIF
-
+; CHECK HERE
                 LDA #SP_READ_PARAM_COUNT
-                STA CMD_LIST_PCOUNT             ; [0] PARAMETER COUNT
-                STX CMD_LIST_DEST               ; [1] DESTINATION DEVICE
-                STY CMD_LIST_LEN_LO             ; [4] LENGTH
+                STA CMD_LIST                    ; [0] PARAMETER COUNT
+                STX CMD_LIST+1                  ; [1] X = DESTINATION DEVICE
+                LDA #$00                        ; SET TO ZERO FOR NOW
+                STA CMD_LIST+2                  ; [2] EXTERNAL POSITION HI
+                STA CMD_LIST+3                  ; [3] EXTERNAL POSITION LO
+                STY CMD_LIST+4                  ; [4] LENGTH LO
                 LDA #$00
-                STY CMD_LIST_LEN_HI             ; [5]
+                STA CMD_LIST+5                  ; [5] LENGTH HI
+                LDA SP_PAYLOAD_ADDR+1
+                STA CMD_LIST+6                  ; [6] WHERE TO STORE DATA
+                LDA SP_PAYLOAD_ADDR
+                STA CMD_LIST+7
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_READ               ; READ CALL COMMAND NUMBER
-relocatesp06:   .WORD CMD_LIST
+relocatesp05:   .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT
                 BCC SP_READ_DONE
+
 ERROR:
+.IF EXT_TRACE
                 PHA
                 PRINT_STR SP_ERROR_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
                 JSR CROUT
-                SEI
+.ENDIF
+                SEC
                 RTS
 
 SP_READ_DONE:
-
-                CLC
                 RTS
 
 
@@ -581,8 +723,6 @@ SP_WRITE:
                 TXA
                 PHA
                 PRINT_STR SP_WRITE_STR_ADDR
-                LDA #':'
-                JSR COUT
                 PRINT_STR UNIT_STR_ADDR
                 PLA
                 TAX
@@ -594,15 +734,22 @@ NO_TRACE15:
 .ENDIF
 
                 LDA #SP_WRITE_PARAM_COUNT
-                STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
-                STX CMD_LIST_DEST               ; DESTINATION DEVICE
-                STY CMD_LIST_LEN_LO             ; LENGTH
-                LDA #$00
-                STY CMD_LIST_LEN_HI     
+                STA CMD_LIST                    ; PARAMETER COUNT
+                STX CMD_LIST+1                  ; DESTINATION DEVICE
+                LDA SP_PAYLOAD_ADDR
+                STA CMD_LIST+2                  ; DATA BUFFER
+                LDA SP_PAYLOAD_ADDR+1
+                STY CMD_LIST+4                  ; Y=LENGTH LO
+                LDA #$00         
+                LDY CMD_LIST+5                  ; LENGTH HI
+                LDA #0                          ; DATA POINTER
+                STA CMD_LIST+6                
+                STA CMD_LIST+7
+   
                 JSR CALL_DISPATCHER
 
-                .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
-relocatesp07:   .WORD CMD_LIST
+                .BYTE SP_CMD_WRITE             ; STATUS CALL COMMAND NUMBER
+relocatesp06:   .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT
@@ -651,8 +798,6 @@ SP_STATUS:
                 TXA
                 PHA
                 PRINT_STR SP_STATUS_STR_ADDR
-                LDA #':'
-                JSR COUT
                 PRINT_STR UNIT_STR_ADDR
                 PLA
                 TAX
@@ -664,13 +809,18 @@ NO_TRACE15:
 .ENDIF
 
                 LDA #SP_STATUS_PARAM_COUNT
-                STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
-                STX CMD_LIST_DEST               ; DESTINATION DEVICE
-                STY CMD_LIST_STAT               ; STATUS CODE
+                STA CMD_LIST                    ; PARAMETER COUNT
+                STX CMD_LIST+1                  ; X = DESTINATION DEVICE
+                LDA SP_PAYLOAD_ADDR             
+                STA CMD_LIST+2                  ; STATUS LIST POINTER LO
+                LDA SP_PAYLOAD_ADDR+1           
+                STA CMD_LIST+3                  ; STATUS LIST POINTER HI
+                STY CMD_LIST+4                  ; Y = STATUS CODE
+
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
-relocatesp08:   .WORD CMD_LIST
+relocatesp07:   .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT
@@ -857,53 +1007,6 @@ FIND_DEVICE_BUF:        .RES  255
 relocate011:
 FIND_DEVICE_BUF_ADDR:   .WORD FIND_DEVICE_BUF
 
-;*******************************
-; PRINT_SP_PAYLOAD
-;   Display the ASCII contents
-; of the payload buffer
-;**********************************
-PRINT_SP_PAYLOAD:
-                SAVE_REGS
-
-                LDX #$00
-PPAYLOAD:   
-                LDA SP_PAYLOAD+5,X      ; STRING
-                ORA #$80
-                JSR COUT
-                INX
-                CPX SP_PAYLOAD+4
-                BNE PPAYLOAD
-
-                RESTORE_REGS
-PAYLOAD2:
-                RTS
-
-;**********************************
-PRINT_SP_PAYLOAD2:
-                SAVE_REGS
-
-                PRINT_STR LEN_STR_ADDR
-
-                LDA #'['
-                JSR COUT
-                LDX SP_PAYLOAD+4
-                JSR PRTX
-                LDA #']'
-                JSR COUT
-
-                LDX #$00
-PPAYLOAD2:   
-                LDA SP_PAYLOAD+5,X      ; STRING
-                ORA #$80
-                JSR COUT
-                INX
-                CPX SP_PAYLOAD+4
-                BNE PPAYLOAD2
-
-                JSR CROUT
-                RESTORE_REGS
-
-                RTS
 
 ;***************************************************************
 .IF USE_SP

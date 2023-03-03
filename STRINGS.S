@@ -6,10 +6,19 @@
 
 CIDERPRESS_CORRUPTION_TEST:                 .BYTE $0A, "CIDERPRESS CORRUPTED FILE", $00
 
-EXTADDED_STR:                               .BYTE   $0D, "FUJINET EXTENSIONS ADDED.", $0D, $00
-SP_NOT_FOUND_STR:                           .BYTE   "NO SMARTPORT! EXTENSIONS NOT LOADED", $0D, $00
-EXITING_STR:                                .BYTE   "EXITING...", $0D, $00
+EXTADDED_STR:                               .BYTE "FUJINET EXTENSIONS ADDED.", $0D, $00
+SP_NOT_FOUND_STR:                           .BYTE "NO SMARTPORT! EXTENSIONS NOT LOADED", $0D, $00
+EXITING_STR:                                .BYTE "EXITING...", $0D, $00
+FUJIAPPLE_VER_STR:                          .BYTE "FUJIAPPLE VERSION: YYYYMMDD.HHMM", $0D, $00
 
+HERE1:  .BYTE "HERE1", $0D, $00
+HERE2:  .BYTE "HERE2", $0D, $00
+HERE3:  .BYTE "HERE3", $0D, $00
+HERE4:  .BYTE "HERE4", $0D, $00
+HERE5:  .BYTE "HERE5", $0D, $00
+HERE6:  .BYTE "HERE6", $0D, $00
+HERE7:  .BYTE "HERE7", $0D, $00
+HERE8:  .BYTE "HERE8", $0D, $00
 
 .IF .NOT STRIP_TRACE
 
@@ -17,8 +26,7 @@ EXITING_STR:                                .BYTE   "EXITING...", $0D, $00
 
 HIMEM_IS_STR:                               .ASCIIZ "OLD HIMEM: "
 RELOC_SIZE_STR:                             .ASCIIZ "RELOCATION SIZE: "
-FUJIAPPLE_VER_STR:                          .BYTE   "FUJIAPPLE VERSION: YYYYMMDD.HHMM", $0D, $00
-RELOCATING_STR:                             .BYTE   $0D, "NEW HIMEM: ", $00
+RELOCATING_STR:                             .BYTE   "NEW HIMEM: ", $00
 
 OPEN_ERR_STR:                               .ASCIIZ "FN_OPEN: OPEN ERR"
 CTRL_ERR_STR:                               .ASCIIZ "FN_OPEN: CTRL ERR"
@@ -87,19 +95,19 @@ DISPATCHER_ADDRESS_STR:                     .ASCIIZ "DISPATCHER ADDRESS:"
 trace011:
 DISPATCHER_ADDRESS_STR_ADDR:                .WORD DISPATCHER_ADDRESS_STR
 
-SP_OPEN_STR:                                .BYTE "SP_OPEN",    $00
+SP_OPEN_STR:                                .BYTE "SP_OPEN:",    $00
 trace012:
 SP_OPEN_STR_ADDR:                           .WORD SP_OPEN_STR
 
-SP_CLOSE_STR:                               .BYTE "SP_CLOSE",   $00
+SP_CLOSE_STR:                               .BYTE "SP_CLOSE:",   $00
 trace013:
 SP_CLOSE_STR_ADDR:                          .WORD SP_CLOSE_STR
 
-SP_CONTROL_STR:                             .BYTE "SP_CONTROL", $00
+SP_CONTROL_STR:                             .BYTE "SP_CONTROL:", $00
 trace014:
 SP_CONTROL_STR_ADDR:                        .WORD SP_CONTROL_STR
 
-SP_STATUS_STR:                              .BYTE "SP_STATUS",  $0D, $00
+SP_STATUS_STR:                              .BYTE "SP_STATUS:",  $0D, $00
 trace015:
 SP_STATUS_STR_ADDR:                         .WORD SP_STATUS_STR
 
@@ -135,11 +143,11 @@ FN_IS_CONNECTED_STR:                        .BYTE "FN_IS_CONNECTED" , $0D, $00
 trace023:
 FN_IS_CONNECTED_STR_ADDR:                   .WORD FN_IS_CONNECTED_STR
 
-FN_OPEN_STR:                                .BYTE "FN_OPEN"         , $00
+FN_OPEN_STR:                                .BYTE "FN_OPEN:"         , $00
 trace024:
 FN_OPEN_STR_ADDR:                           .WORD FN_OPEN_STR
 
-FN_CLOSE_STR:                               .BYTE "FN_CLOSE"        , $00
+FN_CLOSE_STR:                               .BYTE "FN_CLOSE:"        , $00
 trace025:
 FN_CLOSE_STR_ADDR:                          .WORD FN_CLOSE_STR
 
@@ -163,7 +171,7 @@ LEN_STR:                                    .ASCIIZ "LEN:"
 trace033:
 LEN_STR_ADDR:                               .WORD LEN_STR
 
-PAYLOAD_STR:                                .BYTE "PAYLOAD:", $00
+PAYLOAD_STR:                                .BYTE "PAY:", $00
 trace034:
 PAYLOAD_STR_ADDR:                           .WORD PAYLOAD_STR
 
@@ -175,7 +183,7 @@ CLOSE_ERROR_STR:                            .BYTE "CLOSE ERROR", $00
 trace036:
 CLOSE_ERROR_STR_ADDR:                       .WORD CLOSE_ERROR_STR
 
-FN_READ_STR:                                .BYTE "FN_READ", $00
+FN_READ_STR:                                .BYTE "FN_READ:", $00
 trace037:       
 FN_READ_STR_ADDR:                           .WORD FN_READ_STR
 

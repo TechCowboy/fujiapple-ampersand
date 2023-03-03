@@ -109,6 +109,11 @@ def add_file(files):
         time.sleep(0.4)
         
         p.keyDown("alt")
+        p.press("d")
+        p.keyUp("alt")
+        time.sleep(my_speed)
+        
+        p.keyDown("alt")
         p.press("n")
         p.keyUp("alt")
         time.sleep(my_speed)
@@ -374,7 +379,7 @@ if __name__ == "__main__":
     version_signature = "YYYYMMDD.HHMM"
     now = datetime.datetime.now()
     new_version = now.strftime('%Y%m%d.%H%M')
-    print(f"New version: {new_version}")
+    
     
         
     for i in range(len(pfilenames)):
@@ -400,4 +405,5 @@ if __name__ == "__main__":
 
 
     print("Completed.")
+    print(f"New version: {new_version}")
 

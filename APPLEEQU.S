@@ -4,6 +4,9 @@
 
 .ELSE
 
+SPACE       =   $A0       ; SPACE CHARACTER FOR COUT
+COLON       =   ':'+$80   ; COLON CHARACTER FOR COUT
+
 FRESPC      =   $71       ; Applesoft pointer at the string storage area, used when a new string is created.
 AMPVECT     =   $03F5     ; AMPERSAND VECTOR FOR APPLESOFT
 GETBYT      =   $E6F8     ; EVAL BYTE -> X

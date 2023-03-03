@@ -2,7 +2,7 @@
 
 PRINT_X:
         JSR PRTX
-        LDA #' '
+        LDA #' ' + $80
         JSR COUT
         RTS
 
@@ -11,6 +11,8 @@ STR_X:          .ASCIIZ " X:"
 STR_Y:          .ASCIIZ " Y:"
 STR_A:          .ASCIIZ " A:"
 STR_P:          .ASCIIZ " P:"
+
+STR_STACK:      .ASCIIZ "STACK:T"
 
 
 TEMP_A:         .BYTE 1
@@ -34,7 +36,6 @@ PRINT_FLAG:
         CLC
         BCC PRINT_FLAG_DONE
 FLAG_SET:
-        AND #$3F                ; MAKE IT INVERSE
      
 PRINT_FLAG_DONE:
         JSR COUT
@@ -49,7 +50,7 @@ PRINT_FLAGS:
 
         TAX
         JSR PRTX
-        LDA #' '
+        LDA #' ' + $80
         JSR COUT
 
         LDA #$80
@@ -127,6 +128,48 @@ PRINT_REGS:
         
         PLP
         
+        RTS
+
+
+STACK_ITEMS = 10
+PRINT_STACK:
+        SAVE_REGS
+
+        LDA #<STR_STACK
+        LDY #>STR_STACK
+        JSR STROUT
+
+        TSX
+        INX             ; NOW AT TOP OF STACK WITH DATA
+
+        INX             ; IGNORE THE STUFF WE PUT ON THE STACK ; PHP
+        INX             ; Y
+        INX             ; X
+        INX             ; A
+ 
+        LDY #STACK_ITEMS
+
+NEXT_STACK_ITEM:
+        TXA
+        PHA
+
+        LDA $0100,X     ; 
+        TAX
+
+        SAVE_REGS
+        JSR PRINT_X
+        RESTORE_REGS
+
+        PLA
+        TAX
+
+        INX
+        DEY
+        BNE NEXT_STACK_ITEM
+
+        JSR CROUT
+        RESTORE_REGS
+
         RTS
 
 .ENDIF
