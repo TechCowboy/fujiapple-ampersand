@@ -318,14 +318,12 @@ NO_TRACE22:
                 RESTORE_REGS
 
 .ENDIF
-        PRINT_OUT HERE3
-        JSR PRINT_STACK
                 ; X = DEVICE
                 LDY BUFLEN              ; MAX PAYLOAD IS 255         
                 JSR SP_READ
                 BCC READ_OK
 
-                LDX #$FF
+
 READ_ERR:
 
 
@@ -334,18 +332,13 @@ READ_ERR:
                 JSR DUMP_SP_PAYLOAD
 .ENDIF
 
+                LDX #$FF
                 CLC
                 BCC READ_DONE
 READ_OK:
-    PRINT_OUT HERE4
-    JSR PRINT_STACK
-    PRINT_OUT HERE5
-    JSR DUMP_SP_PAYLOAD
-    
+   
                 LDX #FN_OK
 READ_DONE:
-    PRINT_OUT HERE7
-    JSR PRINT_STACK
                 RTS
 
 ;******************************************************************

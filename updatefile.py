@@ -300,7 +300,10 @@ def ProDOS_version(disk, filename, address):
     proc = Popen([cmd_str], shell=True,
              stdin=None, stdout=None, stderr=None, close_fds=True)
 
-    print("click the title bar")
+    time.sleep(1)
+    print("**************************************")
+    print("***** click the Ciderpress window ****")
+    print("**************************************")
     
     checked = False
 
@@ -345,6 +348,8 @@ def convert_dos_bin_to_prodos(src, tgt):
 
 def update_version(file, version_signature, new_version):
     
+    updated = False
+    
     fp = open(file, "rb")
     contents=fp.read()
     fp.close()
@@ -359,10 +364,15 @@ def update_version(file, version_signature, new_version):
         for i in range(len(new_version)):
             content[position+i] = new_version[i]
             
+        fp = open(file, "wb")
+        fp.write(content)
+        fp.close()
+        updated = True
+    else:
+        print("version signature not found")
     
-    fp = open(file, "wb")
-    fp.write(content)
-    fp.close()
+    return updated
+    
 if __name__ == "__main__":
     
     do_dos = False
@@ -384,26 +394,30 @@ if __name__ == "__main__":
         
     for i in range(len(pfilenames)):
         
-        update_version(pfilenames[i], version_signature, new_version)
-        address = pconvert[i]
-        if address == 0:
-            address = convert_dos_bin_to_prodos(pfilenames[i], pfilenamed[i])
-        else:
-            address = hex(address)[2:]
-        ProDOS_version(prodisk, [ pfilenamed[i] ], address)
+        updated = update_version(pfilenames[i], version_signature, new_version)
+        if not updated:
+            new_version = "Version not updated"
+        else:    
+            address = pconvert[i]
+            if address == 0:
+                address = convert_dos_bin_to_prodos(pfilenames[i], pfilenamed[i])
+            else:
+                address = hex(address)[2:]
+            ProDOS_version(prodisk, [ pfilenamed[i] ], address)
     
-    print("Copy to TNFS server...")
+        if updated:
+            print("Copy to TNFS server...")
 
-    cmd = "cp "+prodisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple"
-    print(cmd)
-    os.system(cmd)
-    
-    if do_dos:
-        cmd = "cp "+dosdisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple"
-        print(cmd)
-        os.system(cmd)
+            cmd = "cp "+prodisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple"
+            print(cmd)
+            os.system(cmd)
+            
+            if do_dos:
+                cmd = "cp "+dosdisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple"
+                print(cmd)
+                os.system(cmd)
 
 
-    print("Completed.")
-    print(f"New version: {new_version}")
+            print("Completed.")
+        print(f"New version: {new_version}")
 

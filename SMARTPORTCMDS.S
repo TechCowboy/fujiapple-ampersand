@@ -61,39 +61,29 @@ SP_ERROR_NOT_FOUND      =       SP_ERROR_NON_FATAL50
 
 
 SMARTPORT_DISPATCHER: 
-DISPATCHER_ADDR_LO:
-                        .BYTE $00
-DISPATCHER_ADDR_HI:
-                        .BYTE $00
+DISPATCHER_ADDR_LO:     .BYTE $00
+DISPATCHER_ADDR_HI:     .BYTE $00
 
+relocatesp00:
+SP_PAYLOAD_ADDR:        .WORD  SP_PAYLOAD
+relocatesp01:
+SP_PAYLOAD_STR_ADDR:    .WORD  SP_PAYLOAD+5
 
+SP_COUNT:               .WORD   $FFFF           ; BYTES IN PAYLOAD?
+SP_ERR:                 .BYTE   $FF             ; ERROR CODE
 
 CMD_LIST:               .RES 15               
 
 SP_PAYLOAD:
-DCOUNT:
-                        .BYTE   $01             ; NUMBER OF DEVICES
-INTSTATE:       
-                        .BYTE   $FF             ; INTERRUPT STATUS (IF BIT 6 IS SET, THEN NO INTERRUPT)
-MANUFACTURER:   
-                        .WORD   $FFFF           ; DRIVER MANUFACTURER
+DCOUNT:                 .BYTE   $01             ; NUMBER OF DEVICES
+INTSTATE:               .BYTE   $FF             ; INTERRUPT STATUS (IF BIT 6 IS SET, THEN NO INTERRUPT)
+MANUFACTURER:           .WORD   $FFFF           ; DRIVER MANUFACTURER
                                                 ; $0000 - UNDETERMINED
                                                 ; $0001 - APPLE
                                                 ; $0002-$FFFF 3RD PARTY DRIVER
-INTERFACEVER:   
-                        .WORD   $FFFF           ; INTERFACE VERSION
+INTERFACEVER:           .WORD   $FFFF           ; INTERFACE VERSION
                         .WORD   $0000           ; RESERVED (MUST BE $0000)
-                        .RES    255             ; RESERVED FOR DATA
-
-SP_COUNT:       
-                        .WORD   $FFFF           ; BYTES IN PAYLOAD?
-
-relocatesp00:
-SP_PAYLOAD_ADDR:        
-                        .WORD  SP_PAYLOAD
-relocatesp01:
-SP_PAYLOAD_STR_ADDR:    .WORD  SP_PAYLOAD+5
-
+                        .RES    512             ; RESERVED FOR DATA
 
 SLOT_ADDR		=	ZP2
 SLOT_ADDR_LO	    	=	ZP2_LO
@@ -148,8 +138,6 @@ PAYLOAD:
 DUMPSIZE = 12
 
 DUMP_SP_PAYLOAD:
-        PRINT_OUT HERE1
-        JSR PRINT_STACK
                 JSR CROUT
                 LDX #$00
 PPAYLOAD0:   
@@ -186,8 +174,7 @@ PPAYLOAD1:
                 BNE PPAYLOAD1
 
                 JSR CROUT
-        PRINT_OUT HERE2
-        JSR PRINT_STACK
+
                 RTS
 
 ;**********************************
@@ -657,16 +644,17 @@ NO_TRACE15:
                 LDA #SP_READ_PARAM_COUNT
                 STA CMD_LIST                    ; [0] PARAMETER COUNT
                 STX CMD_LIST+1                  ; [1] X = DESTINATION DEVICE
-                LDA #$00                        ; SET TO ZERO FOR NOW
-                STA CMD_LIST+2                  ; [2] EXTERNAL POSITION HI
-                STA CMD_LIST+3                  ; [3] EXTERNAL POSITION LO
+                LDA SP_PAYLOAD_ADDR
+                STA CMD_LIST+2                  ; [2] WHERE TO STORE DATA LO
+                LDA SP_PAYLOAD_ADDR+1
+                STA CMD_LIST+3                  ; [3] WHERE TO STORE DATA HI
                 STY CMD_LIST+4                  ; [4] LENGTH LO
                 LDA #$00
                 STA CMD_LIST+5                  ; [5] LENGTH HI
-                LDA SP_PAYLOAD_ADDR+1
-                STA CMD_LIST+6                  ; [6] WHERE TO STORE DATA
-                LDA SP_PAYLOAD_ADDR
-                STA CMD_LIST+7
+                LDA #00
+                STA CMD_LIST+6                  ; [6] ????
+                LDA #40
+                STA CMD_LIST+7                  ; [7] ????
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_READ               ; READ CALL COMMAND NUMBER
@@ -674,6 +662,7 @@ relocatesp05:   .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT
+                STA SP_ERR
                 BCC SP_READ_DONE
 
 ERROR:
