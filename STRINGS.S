@@ -11,6 +11,18 @@ SP_NOT_FOUND_STR:                           .BYTE "NO SMARTPORT! EXTENSIONS NOT 
 EXITING_STR:                                .BYTE "EXITING...", $0D, $00
 FUJIAPPLE_VER_STR:                          .BYTE "FUJIAPPLE VERSION: YYYYMMDD.HHMM", $0D, $00
 
+.IF .NOT USE_SP
+
+TEST_BLOCK_STR:
+    .BYTE "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt "
+    .BYTE $00
+    .BYTE "labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco "
+    .BYTE "laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in "
+    .BYTE "voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat "
+    .BYTE "non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+    .BYTE $00
+
+.ENDIF
 
 .IF .NOT STRIP_TRACE
 
@@ -32,14 +44,7 @@ RELOCATING_STR:                             .BYTE   "NEW HIMEM: ", $00
 OPEN_ERR_STR:                               .ASCIIZ "FN_OPEN: OPEN ERR"
 CTRL_ERR_STR:                               .ASCIIZ "FN_OPEN: CTRL ERR"
 
-TEST_BLOCK_STR:
-    .BYTE "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt "
-    .BYTE $00
-    .BYTE "labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco "
-    .BYTE "laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in "
-    .BYTE "voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat "
-    .BYTE "non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-    .BYTE $00
+
 .ENDIF
 
 ; THESE STRING ARE USED AFTER RELOCATING
@@ -257,10 +262,12 @@ SP_SUCCESS_STR:                             .ASCIIZ "SMARTPORT SUCCESS:  "
 str012:
 SP_SUCCESS_STR_ADDR:                        .WORD SP_SUCCESS_STR
 
+FUJI_DISK_0_STR_LEN:                        .BYTE 14
 FUJI_DISK_0_STR:                            .ASCIIZ "FUJINET_DISK_0"
 str013:
 FUJI_DISK_0_STR_ADDR:                       .WORD FUJI_DISK_0_STR
 
+NETWORK_STR_LEN:                            .BYTE 7
 NETWORK_STR:                                .ASCIIZ "NETWORK"
 str014:
 NETWORK_STR_ADDR:                           .WORD NETWORK_STR

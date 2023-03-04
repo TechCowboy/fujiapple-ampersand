@@ -5,7 +5,7 @@ from subprocess import Popen, PIPE
 import datetime
 
 filename   = [ "FUJIAPPLE"]
-pconvert   = [ 0x2000 ]
+pconvert   = [ 0x2000 ] # If entry is zero, it will get the address from pfilenames entry (dos 3 file)
 pfilenames = [ "FUJIAPPLE"  ]
 pfilenamed = [ "FUJIAPPLE" ]
 dosdisk   = "FUJIAPPLE.dsk"

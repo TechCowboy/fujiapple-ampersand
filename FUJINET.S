@@ -36,38 +36,33 @@ FN_ERR_MEMORY_ERROR     = 255	    ;Could not allocate either receive or transmit
 
 ;******************************************************************;
 ; CPY_STR_TO_SP_PAYLOAD
-; Copy the length proceeded, zero terminated string to the Smartport buffer
+; Copy the length proceeded string to the Smartport buffer
 ;
 ; INPUT
 ;  A = high address
 ;  Y = low address
+;  X = length
 ; RETURNS
 ;  X = String length
 ;******************************************************************
 CPY_STR_TO_SP_PAYLOAD:
                 STA ZP1_LO
                 STY ZP1_HI
-                
-                LDX #$00
+                STX ZP2
+
+
                 LDY #$00
-LOOK_FOR_NULL2:
+CONT3:
                 LDA (ZP1),Y
-                STA SP_PAYLOAD+5,X 
-                BEQ GOT_LENGTH2
+                STA SP_PAYLOAD+5,Y 
                 INY
-                INX
-                CLC
-                BCC LOOK_FOR_NULL2
+                CPY ZP2
+                BNE CONT3
 
 GOT_LENGTH2:
-                INX                     
-                LDA #$00                ; NULL TERMINATE STRING
-                STA SP_PAYLOAD+5,X
-
-                TXA
-                STA SP_PAYLOAD+4        ; STORE LENGTH
-
-                TAX                     ; RETURN LENGTH
+                
+                STY SP_PAYLOAD+4        ; STORE LENGTH
+                LDX SP_PAYLOAD+4
                 RTS
 
 ;******************************************************************
@@ -186,11 +181,14 @@ NO_TRACE20:
                 JSR SP_OPEN 
                 BCC CONT2
 OPEN_ERR:
+
+.IF .NOT STRIP_TRACE
                 LDA #<OPEN_ERR_STR
                 LDY #>OPEN_ERR_STR
 
                 JSR STROUT
                 JSR CROUT
+.ENDIF
                 PLA
                 SEC
                 LDX #FN_ERR_NETWORK_DOWN
@@ -208,7 +206,6 @@ CONT2:
 ;2      mode read or write or both
 ;3      translation
 ;4...   url
-
                 ; STAGE #2
                 ; SET PAYLOAD SIZE
                 LDY #$02                    ; PAYLOAD SIZE = $102 = 258 BYTES
@@ -256,10 +253,13 @@ NO_TRACE21:
                 JSR SP_CONTROL
                 BCC READ_OK2
 CTRL_ERR:
+
+.IF .NOT STRIP_TRACE
                 LDA #<CTRL_ERR_STR
                 LDY #>CTRL_ERR_STR
                 JSR STROUT
                 JSR CROUT
+.ENDIF
                 SEC
                 LDX #FN_ERR_NETWORK_DOWN
                 RTS
@@ -339,6 +339,8 @@ READ_OK:
    
                 LDX #FN_OK
 READ_DONE:
+                LDY SP_COUNT
+                LDA SP_ERR
                 RTS
 
 ;******************************************************************
@@ -520,3 +522,68 @@ MULTI_NETWORK:
 FIND_COMPLETED:
 
                 RTS
+
+
+FN_LIST:
+;*******************************
+; FN_LIST
+;   Transfer devices into a buffer
+;**********************************
+                LDX #$00
+                LDY #SP_CMD_STATUS
+                JSR SP_STATUS
+
+                LDX DCOUNT
+                INX
+                STX NUM_DEVICES
+
+                LDX #$01
+                LDY #$00
+                STY STRLEN
+NEXT_DEV1:               
+                TXA
+                PHA
+
+                LDY #SP_STATUS_DIB      ; X = DEVICE 
+                JSR SP_STATUS
+                BCS FN_LIST_ERROR_OUT   ; SHOULD NEVER HAPPEN, BUT IF IT DOES, JUST EXIT
+
+                LDX #$00              
+NEXT_CHAR:
+                LDA SP_PAYLOAD+5,X
+                LDY STRLEN
+                STA STRBUF,Y
+                INX
+                INC STRLEN
+                CPX SP_PAYLOAD+4        ; ARE WE AT END OF STRING (NOT NULL TERMINATED)
+                BNE NEXT_CHAR
+                    
+                LDA #','                 ; ADD A COMMA
+                LDY STRLEN
+                STA STRBUF,Y
+                INC STRLEN
+
+                PLA                     ; MOVE TO NEXT DEVICE
+                TAX
+                INX
+                CPX NUM_DEVICES         ; HAVE WE EXCEEDED DEVICE LIST?
+                BNE NEXT_DEV1
+
+FN_LIST_OK:
+                DEC STRLEN
+                LDX STRLEN
+                LDA #$00
+                STA STRBUF,X            ; REMOVE THE LAST COMMA
+                LDX #FN_OK
+                CLC
+                RTS
+
+FN_LIST_ERROR_OUT:
+
+                PLA
+
+                LDX #$FF
+                SEC
+                RTS
+
+

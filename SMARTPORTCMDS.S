@@ -112,24 +112,52 @@ CLR:
 ;*******************************
 ; PRINT_SP_PAYLOAD
 ;   Display the ASCII contents
-; of the payload buffer
+; of the payload buffer.  Buffer
+; is NULL terminated and Length is
+; not stored at start of buffer.
 ;**********************************
 PRINT_SP_PAYLOAD:
                 SAVE_REGS
 
+                JSR DUMP_SP_PAYLOAD
+
                 LDX #$00
+
 PPAYLOAD:   
                 LDA SP_PAYLOAD+4,X      ; STRING
                 ORA #$80
                 JSR COUT
                 INX
-                CPX #16
-                BNE PPAYLOAD
+                CLC              ; "NULL" TERMINATED (we just or'd this)
+                BCC PPAYLOAD
 
                 RESTORE_REGS
-PAYLOAD:
+END_PAYLOAD:
                 RTS
 
+
+;*******************************
+; PRINT_SP_PAYLOAD_STR
+;   Display the ASCII contents
+; of the payload buffer.  Buffer
+; length is the first byte at the
+; start of buffer.
+;**********************************
+PRINT_SP_PAYLOAD_STR:
+                SAVE_REGS
+
+                LDX #$00
+
+PPAYLOAD2:   
+                LDA SP_PAYLOAD+5,X      ; STRING
+                ORA #$80
+                JSR COUT
+                INX
+                CPX SP_PAYLOAD+4        ; LENGTH OF STRING 
+                BNE PPAYLOAD2
+
+                RESTORE_REGS
+                RTS
 ;*******************************
 ; DUMP_SP_PAYLOAD
 ;   Display the HEX and ASCII contents
@@ -156,7 +184,6 @@ PPAYLOAD0:
                 BNE PPAYLOAD0
                 JSR CROUT
 
-        JSR PRINT_STACK
                 LDX #$00
 PPAYLOAD1: 
                 TXA
@@ -178,6 +205,8 @@ PPAYLOAD1:
                 RTS
 
 ;**********************************
+.IF .NOT STRIP_TRACE
+
 DUMP_SP_PAYLOAD_STR:
                 SAVE_REGS
 
@@ -209,6 +238,7 @@ PPAYLOAD2:
 
                 RTS
 
+.ENDIF
 
 
 .IF USE_SP
@@ -514,11 +544,6 @@ SP_CLOSE_DONE:
 ;
 ; FUJINET SPECIFC
 ;Byte   Definition
-; 'O'-open
-;0-1    payload size
-;2      mode read or write or both
-;3      translation
-;4...   url
 ;
 ; 'C'-close
 ;0-1    payload size $00
@@ -609,12 +634,12 @@ SP_CTRL_DONE:
 ;Byte  Definition
 ;0      parameter list length ($04)
 ;1      unit number
-;2-3    data buffer pointer
+;2-3    input buffer pointer (lsb-msb)
 ;4-5    byte count
 ;6-7    address pointer
 ;
 ;Parameter description
-;data buffer pointer: This parameter contains the beginning address of the host data
+;input buffer pointer: This parameter contains the beginning address of the host data
 ;buffer to which the target bytes are written.
 ;byte count: This parameter contains the number of bytes to be read 
 ;address pointer: This parameter contains the block address of the target block.
@@ -640,7 +665,7 @@ NO_TRACE15:
                 RESTORE_REGS
 .ENDIF
 .ENDIF
-; CHECK HERE
+
                 LDA #SP_READ_PARAM_COUNT
                 STA CMD_LIST                    ; [0] PARAMETER COUNT
                 STX CMD_LIST+1                  ; [1] X = DESTINATION DEVICE
@@ -651,10 +676,18 @@ NO_TRACE15:
                 STY CMD_LIST+4                  ; [4] LENGTH LO
                 LDA #$00
                 STA CMD_LIST+5                  ; [5] LENGTH HI
+
+                ; *** Based on Smartport SCSI info below
+                ; *** Not sure if necessary
+                ; *** was not set in the example by Thom Cherryhomes
+
                 LDA #00
-                STA CMD_LIST+6                  ; [6] ????
-                LDA #40
+                STA CMD_LIST+6                  ; [6] ???? BLOCK ADDRESS OF TARGET BLOCK
+                LDA #00
                 STA CMD_LIST+7                  ; [7] ????
+
+                ; ***
+                
                 JSR CALL_DISPATCHER
 
                 .BYTE SP_CMD_READ               ; READ CALL COMMAND NUMBER
@@ -675,7 +708,6 @@ ERROR:
                 JSR CROUT
 .ENDIF
                 SEC
-                RTS
 
 SP_READ_DONE:
                 RTS
@@ -731,9 +763,16 @@ NO_TRACE15:
                 STY CMD_LIST+4                  ; Y=LENGTH LO
                 LDA #$00         
                 LDY CMD_LIST+5                  ; LENGTH HI
+
+                ; *** Based on Smartport SCSI info below
+                ; *** Not sure if necessary
+                ; *** was not set in the example by Thom Cherryhomes
+                
                 LDA #0                          ; DATA POINTER
                 STA CMD_LIST+6                
                 STA CMD_LIST+7
+
+                ; ***
    
                 JSR CALL_DISPATCHER
 
@@ -742,19 +781,22 @@ relocatesp06:   .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT
+                STA SP_ERR
                 BCS ERROR2
 
                 BCC SP_WRITE_DONE
 ERROR2:
+
+.IF .NOT STRIP_TRACE
                 PHA
                 PRINT_STR SP_ERROR_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
                 JSR CROUT
-
+.ENDIF
+                SEC
 SP_WRITE_DONE:
-
                 RTS
 
 
@@ -813,17 +855,19 @@ relocatesp07:   .WORD CMD_LIST
 
                 STX SP_COUNT+1
                 STY SP_COUNT
-                BCS ERROR3
-
+                STA SP_ERR
                 BCC SP_STATUS_DONE
+
 ERROR3:
+.IF .NOT STRIP_TRACE
                 PHA
                 PRINT_STR SP_ERROR_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
                 JSR CROUT
-
+.ENDIF
+                SEC
 SP_STATUS_DONE:
 
                 RTS
@@ -903,6 +947,7 @@ NO_TRACE17:
 
 NUM_DEVICES:    .BYTE $00
 
+.IF .NOT STRIP_TRACE
 ;*******************************
 ; ISTROUT
 ;   Display string in Fsp_D
@@ -923,6 +968,7 @@ PRINTI:
                 BCC PRINTI
 PRINTI_STOP:
                 RTS
+.ENDIF
 
 ;*******************************
 ; DISPLAY_SP_DEVICES
@@ -930,12 +976,6 @@ PRINTI_STOP:
 ; the smartport
 ;**********************************
 DISPLAY_SP_DEVICES:
-
-                LDA DEV_LIST_STR_ADDR
-                LDY DEV_LIST_STR_ADDR+1
-                JSR ISTROUT
-                JSR CROUT
-                JSR CROUT
 
                 LDX #$00
                 LDY #SP_CMD_STATUS
@@ -967,7 +1007,7 @@ NEXT_DEV:
                 JSR SP_STATUS
                 BCS DISPLAY_ERROR_OUT   ; SHOULD NEVER HAPPEN, BUT IF IT DOES, JUST EXIT
 
-                JSR PRINT_SP_PAYLOAD
+                JSR PRINT_SP_PAYLOAD_STR
 
                 JSR CROUT
 

@@ -36,9 +36,9 @@
 ; These keywords show information regarding the BASIC and
 ; FN_???? functions being called.
 ;
-; EXT_TRACE includes calls into the SMARTPORT routines
+; EXT_TRACE and EXT2_TRACE includes calls into the SMARTPORT routines
 
-STRIP_TRACE= 0  ; Eliminate all tracing code and strings
+STRIP_TRACE= 1  ; Eliminate all tracing code and strings
 EXT_TRACE  = 0  ; Extended Trace, 1=display SMARTPORT internal debug messages 
 EXT2_TRACE = 0  ; Extended Trace 2, display SP_STATUS and CALL_DISPATCHER
 RELOCATE   = 0  ; 1=relocate himem and put our code there
@@ -584,12 +584,13 @@ STORING:
                 LDA NETWORK,X                   ; FUJINET UNIT
                 TAX
                 JSR FN_OPEN
-
                 BCC NOPEN_COMPLETE
 
                 LDX BASIC_UNIT                  ; FAILED TO OPEN
                 LDA #$FF                        ; INDICATE THE NETWORK IS 
                 STA NETWORK,X                   ; NOT IN USE
+                LDA SP_ERR
+                STA NERR,X
 
 NOPEN_COMPLETE:
                 RTS
@@ -609,16 +610,22 @@ NO_TRACE2:
                 STX   BASIC_UNIT
 
 .IF .NOT STRIP_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE34
+
                 SAVE_REGS
                 JSR PRTX
                 JSR CROUT
                 RESTORE_REGS
+NO_TRACE34:
 .ENDIF               
 
                 LDX BASIC_UNIT
                 LDA NETWORK, X  ; THIS IS THE ACTUAL UNIT NUMBER
                 TAX
                 JSR FN_CLOSE
+                LDX BASIC_UNIT
+                STA NERR,X
 
                 LDA #$FF
                 STA NETWORK, X
@@ -676,7 +683,8 @@ NO_TRACE3:
 
 UNIT_OK2:
                 TAX 
-                JSR FN_READ                     ; REQEST THE DATA FROM FUJINET
+                JSR FN_READ                     ; REQUEST THE DATA FROM FUJINET
+                STA NERR
                 CPX #$FF
                 BEQ NREAD_ERROR
                 
@@ -724,7 +732,9 @@ UNIT_OK2:
                 RTS
 NREAD_ERROR:
 
+.IF .NOT STRIP_TRACE
                 PRINT_STR NREAD_ERROR_STR_ADDR  ; THERE WAS AN ERROR READING
+.ENDIF
 
                 RTS
 ;*****************************************************
@@ -803,8 +813,8 @@ NCTRL:
                 PRINT_STR NCTRL_STR_ADDR        ; "NCTRL"
 NO_TRACE5:
 .ENDIF
-                JSR   GETBYT     ; GET UNIT
-                STX   BASIC_UNIT
+                JSR GETBYT     ; GET UNIT
+                STX BASIC_UNIT
 
 .IF .NOT STRIP_TRACE
                 SAVE_REGS
@@ -813,32 +823,32 @@ NO_TRACE5:
                 RESTORE_REGS
 .ENDIF
 
-                JSR   CHKCOM
-                JSR   GETBYT     ; GET COMMAND
-                STX   COMMAND
+                JSR CHKCOM
+                JSR GETBYT     ; GET COMMAND
+                STX COMMAND
 
-                JSR   CHKCOM
-                JSR   CHRGOT     ; WHAT ARE WE POINTING AT IN BASIC?
-                CMP   #QUOTE     ; IS IT A STATIC STRING?
-                BNE   GETVAR3
+                JSR CHKCOM
+                JSR CHRGOT     ; WHAT ARE WE POINTING AT IN BASIC?
+                CMP #QUOTE     ; IS IT A STATIC STRING?
+                BNE GETVAR3
 
-                JSR   GETSTR     ; GET THE STATIC STRING
+                JSR GETSTR     ; GET THE STATIC STRING
                 CLC
-                BCC   STORE3
+                BCC STORE3
 
 GETVAR3:
-                JSR   GETSTRVAR
+                JSR GETSTRVAR
 
 STORE3:
 
 ; MOVE STRING TO PAYLOAD
-                LDY   DSCTMP
+                LDY DSCTMP
 CPY2BUF:
-                LDA   (DSCTMP+1),Y
-                STA   BASIC_PAYLOAD,Y
+                LDA (DSCTMP+1),Y
+                STA BASIC_PAYLOAD,Y
                 DEY
-                BPL   CPY2BUF
-;*
+                BPL CPY2BUF
+
                 LDA BASIC_UNIT
                 TAX
                 LDA NETWORK,X
@@ -879,6 +889,8 @@ NO_TRACE6:
                 RESTORE_REGS
 .ENDIF
                 JSR CHKCOM
+
+                JSR FN_IS_CONNECTED
 
 ;******* TO DO *******
 ;* GET BYTES WAITING AND STORE IN BW - DONE
@@ -987,6 +999,7 @@ RESTORE_VECT:
 ;*******************************************
 NLIST:
 ; &NLIST
+; &NLIST A$
 ; Display devices
 
 .IF .NOT STRIP_TRACE
@@ -996,6 +1009,35 @@ NLIST:
 NO_TRACE8:                
 .ENDIF
 
+                JSR CHRGOT
+                BEQ NO_ARG
+                CMP #':'
+                BEQ NO_ARG
+
+                JSR FN_LIST
+
+                JSR PTRGET                      ; GET THE STRING TO RECEIVED OUR DATA
+
+                LDA STRLEN                      ; USE THE APPLESOFT ROUTINES TO
+                JSR STRINI                      ; CREATE A NEW STRING OF APPROPRIATE SIZE
+
+                LDY #$00
+                LDA DSCTMP                      ; DESCRIPTOR FOR NEW STRING
+                STA (VARPTR),Y                  ; UPDATE THE LENGTH
+                INY
+                LDA DSCTMP+1                    ; UPDATE THE LOCATION OF THE STRING
+                STA (VARPTR),Y 
+                INY
+                LDA DSCTMP+2
+                STA (VARPTR),Y
+
+                LDY STRBUF_ADDR+1               ; MOVE OUR STRING BUFFER INTO THE
+                LDX STRBUF_ADDR                 ; ACTUAL STRING
+                JSR MOVSTR                      ; COPY BUFFER TO STRING (VAR$)
+               
+                RTS
+
+NO_ARG:
                 JSR DISPLAY_SP_DEVICES
 
                 RTS
@@ -1072,10 +1114,10 @@ relocate008:    .WORD   NLIST-1
 
 .IF .NOT STRIP_TRACE
                 .BYTE   "N", TOK_TRACE, 0       ; NTRACE
-trace028:    .WORD   NTRACE-1
+trace028:       .WORD   NTRACE-1
 
                 .BYTE   "N",TOK_NOTRACE, 0      ; NNOTRACE
-trace029:    .WORD   NNOTRACE-1
+trace029:       .WORD   NNOTRACE-1
 .ENDIF
 
 ;*******************************************
@@ -1105,7 +1147,6 @@ COMMAND:        .BYTE   0       ; FUJINET COMMAND
 BASIC_PAYLOAD:  .RES    255     ; PAYLOAD TO SEND
 BW:             .WORD   0       ; BYTES WAITING
 CONNECT:        .BYTE   0       ; 1=CONNECTED
-NERR:           .BYTE   0       ; LAST ERROR
 BUFLEN:         .BYTE   0
 BUF:            .RES    255     ; GENERIC BUFFER FOR READ/WRITE
 STRADDR:        .WORD   0
@@ -1113,7 +1154,8 @@ STRLEN:         .BYTE   0
 STRBUF:         .RES    255
 relocate010:
 STRBUF_ADDR:    .WORD   STRBUF
-NETWORK:        .BYTE   $FF, $FF, $FF, $FF ; BASIC UNIT INDEX TO ACTUAL UNIT
+NETWORK:        .BYTE   $FF, $FF, $FF, $FF      ; BASIC UNIT INDEX TO ACTUAL UNIT
+NERR:           .BYTE   $FF, $FF, $FF, $FF      ; LAST ERROR
 
 STR_DSC_LEN:    .BYTE   0
 STR_DSC_LO:     .BYTE   0

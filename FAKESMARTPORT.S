@@ -91,9 +91,9 @@ NO_TRACE26:
 
 SPECIFIC_DEVICE:
                 LDA #SP_STATUS_PARAM_COUNT
-                STA CMD_LIST_PCOUNT             ; PARAMETER COUNT
-                STX CMD_LIST_DEST               ; DESTINATION DEVICE
-                STY CMD_LIST_STAT               ; STATUS CODE
+                STA CMD_LIST                    ; PARAMETER COUNT
+                STX CMD_LIST+1                  ; DESTINATION DEVICE
+                STY CMD_LIST+2                  ; STATUS CODE
 
                 CPY #SP_CMD_STATUS
                 BNE NOT_STATUS
@@ -104,13 +104,14 @@ NOT_STATUS:
                 CPY#SP_STATUS_DIB               ; GET NAME
                 BNE CMD_UNKNOWN
 
-                LDX CMD_LIST_DEST               ; WHAT DEVICE ARE WE WANTING INFO FROM?
+                LDX CMD_LIST+1                  ; WHAT DEVICE ARE WE WANTING INFO FROM?
                 CPX #$01
                 BNE NETWORK_DEV2
 
 FUJI_DISK1:                                     ; FUJINET DISK 0?
                 LDA FUJI_DISK_0_STR_ADDR
                 LDY FUJI_DISK_0_STR_ADDR+1
+                LDX FUJI_DISK_0_STR_LEN
                 CLC
                 BCC COPY_2_PAYLOAD
 
@@ -120,7 +121,7 @@ NETWORK_DEV2:                                   ; NETWORK DEVICE?
 
                 LDA NETWORK_STR_ADDR
                 LDY NETWORK_STR_ADDR+1
-
+                LDX NETWORK_STR_LEN
 COPY_2_PAYLOAD:
                 JSR CPY_STR_TO_SP_PAYLOAD
 
