@@ -34,6 +34,8 @@ FN_ERR_CONNECTION_ABORTED = 211	    ;Connection Aborted
 FN_ERR_BAD_CREDENTIALS  = 212	    ;Invalid Username or Password (debating whether to overload as access denied.)
 FN_ERR_MEMORY_ERROR     = 255	    ;Could not allocate either receive or transmit buffers.
 
+FN_LAST_ERR:            .BYTE $00
+
 ;******************************************************************;
 ; CPY_STR_TO_SP_PAYLOAD
 ; Copy the length proceeded string to the Smartport buffer
@@ -179,6 +181,7 @@ NO_TRACE20:
                 ; STAGE #1
                 ; OPEN THE DEVICE #X
                 JSR SP_OPEN 
+                STA FN_LAST_ERR
                 BCC CONT2
 OPEN_ERR:
 
@@ -191,7 +194,7 @@ OPEN_ERR:
 .ENDIF
                 PLA
                 SEC
-                LDX #FN_ERR_NETWORK_DOWN
+                LDX FN_LAST_ERR
                 RTS
 
 CONT2:
@@ -251,7 +254,8 @@ NO_TRACE21:
                 ; CALL FUJINET OPEN
                 LDY #'O'                    ; SEND 'O' TO FUJINET
                 JSR SP_CONTROL
-                BCC READ_OK2
+                STA FN_LAST_ERR
+                BCC OPEN_OK2
 CTRL_ERR:
 
 .IF .NOT STRIP_TRACE
@@ -261,11 +265,11 @@ CTRL_ERR:
                 JSR CROUT
 .ENDIF
                 SEC
-                LDX #FN_ERR_NETWORK_DOWN
+                LDX FN_LAST_ERR
                 RTS
 
-READ_OK2:
-                LDX #FN_OK
+OPEN_OK2:
+                LDX FN_LAST_ERR
                 RTS
 
 
@@ -302,25 +306,27 @@ FN_READ:
 
 .IF .NOT STRIP_TRACE
                 SAVE_REGS
-                LDA TRACE_FLAG
-                BEQ NO_TRACE22
                 TXA
                 PHA
+                LDA TRACE_FLAG
+                BEQ NO_TRACE22
+
                 PRINT_STR FN_READ_STR_ADDR
                 PRINT_STR UNIT_STR_ADDR
                 PLA
+                PHA
                 TAX
                 JSR PRTX
                 JSR CROUT
-NO_TRACE22:                
-
-                JSR WIPE_PAYLOAD
+NO_TRACE22:     
+                PLA          
                 RESTORE_REGS
 
 .ENDIF
                 ; X = DEVICE
                 LDY BUFLEN              ; MAX PAYLOAD IS 255         
                 JSR SP_READ
+                STA FN_LAST_ERR
                 BCC READ_OK
 
 
@@ -332,12 +338,12 @@ READ_ERR:
                 JSR DUMP_SP_PAYLOAD
 .ENDIF
 
-                LDX #$FF
+                LDX FN_LAST_ERR
                 CLC
                 BCC READ_DONE
 READ_OK:
    
-                LDX #FN_OK
+                LDX FN_LAST_ERR
 READ_DONE:
                 LDY SP_COUNT
                 LDA SP_ERR
@@ -377,6 +383,7 @@ NO_TRACE33:
                 
                 LDY #'C'                ; SEND 'C' TO FUJINET
                 JSR SP_CONTROL
+                STA FN_LAST_ERR
                 BCC CLOSE_OK
 
                 PLA
@@ -407,6 +414,13 @@ CLOSE_DONE:
 ; A = 1 IF CONNECTED, 0 IF NOT
 ;******************************************************************
 ; X = DEVICE
+
+;bool isConnected(void)
+;{
+;  sp_status(net,'S');
+;  return sp_payload[2] & 0x02; // Bit 2 = Connected?
+;}
+
 FN_IS_CONNECTED:
 
 .IF .NOT STRIP_TRACE
@@ -421,7 +435,6 @@ FN_IS_CONNECTED:
                 PLA
                 TAX
                 JSR PRTX
-                JSR CROUT
 
 NO_TRACE23:                
                 RESTORE_REGS
@@ -430,9 +443,24 @@ NO_TRACE23:
 
                 LDY #'S'
                 JSR SP_STATUS
+                STA FN_LAST_ERR
+                BCC CONNECT_CONT
+                LDX #$FF
+                RTS
+
+CONNECT_CONT:
+                LDX #FN_OK
                 LDA SP_PAYLOAD+2
                 AND #$02
                 ROR
+
+.IF EXT_TRACE
+                SAVE_REGS
+                TAX
+                JSR PRTX
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
                 RTS
 
 ;******************************************************************
@@ -447,27 +475,53 @@ FN_BYTES_WAITING:
 .IF .NOT STRIP_TRACE
 .IF EXT_TRACE
                 SAVE_REGS
-                LDA TRACE_FLAG
-                BEQ NO_TRACE24
                 TXA
                 PHA
+                LDA TRACE_FLAG
+                BEQ NO_TRACE24
+
                 PRINT_STR FN_BYTES_WAITING_STR_ADDR
-                PRINT_STR UNIT_STR_ADDR
                 PLA
+                PHA
                 TAX
                 JSR PRTX
-                JSR CROUT
 
-NO_TRACE24:                
+NO_TRACE24:     
+                PLA           
                 RESTORE_REGS
 .ENDIF
 .ENDIF
+
+;  sp_status(net,'S');
+;
+;  bw = sp_payload[0];
+;  bw |= (sp_payload[1]) << 8;
+;
+;  if (bw==0)
+;    return;
                 LDY #'S'
                 JSR SP_STATUS
-
+                STA FN_LAST_ERR
+                BCC BW_OK
+BW_ERROR:                
+                LDX #$FF
+                BCS BW_DONE
+BW_OK:
                 LDA SP_PAYLOAD
                 LDY SP_PAYLOAD+1
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
+                PHA
+                TYA
+                TAX
+                PLA
+                JSR PRTAX
+                LDA SP_PAYLOAD
+                LDY SP_PAYLOAD+1
+.ENDIF
+.ENDIF
 
+BW_DONE:
                 RTS
         
 ;******************************************************************
@@ -546,6 +600,7 @@ NEXT_DEV1:
 
                 LDY #SP_STATUS_DIB      ; X = DEVICE 
                 JSR SP_STATUS
+                STA FN_LAST_ERR
                 BCS FN_LIST_ERROR_OUT   ; SHOULD NEVER HAPPEN, BUT IF IT DOES, JUST EXIT
 
                 LDX #$00              

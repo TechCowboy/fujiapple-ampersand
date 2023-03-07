@@ -2,13 +2,16 @@
 
 MACROS=1
 
+; NOTE: CONTENTS OF A IS DESTROYED
 .MACRO SAVE_REGS
+        STA MACRO_A
         PHP
         PHA
         TXA
         PHA
         TYA
         PHA
+        LDA MACRO_A
 .ENDMACRO
 
 .MACRO RESTORE_REGS

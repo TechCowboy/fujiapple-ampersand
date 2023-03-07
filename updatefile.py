@@ -405,19 +405,20 @@ if __name__ == "__main__":
                 address = hex(address)[2:]
             ProDOS_version(prodisk, [ pfilenamed[i] ], address)
     
-        if updated:
-            print("Copy to TNFS server...")
 
-            cmd = "cp "+prodisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple"
+        print("Copy to TNFS server...")
+
+        cmd = "cp "+prodisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple"
+        print(cmd)
+        os.system(cmd)
+        
+        if do_dos:
+            cmd = "cp "+dosdisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple"
             print(cmd)
             os.system(cmd)
-            
-            if do_dos:
-                cmd = "cp "+dosdisk + " /run/user/1000/gvfs/smb-share:server=192.168.2.21,share=tnfs/apple"
-                print(cmd)
-                os.system(cmd)
 
 
-            print("Completed.")
+        print("Completed.")
         print(f"New version: {new_version}")
 
+   

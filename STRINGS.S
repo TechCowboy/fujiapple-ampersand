@@ -105,15 +105,25 @@ SP_OPEN_STR:                                .BYTE "SP_OPEN:",    $00
 trace012:
 SP_OPEN_STR_ADDR:                           .WORD SP_OPEN_STR
 
+SP_READ_STR:                                .BYTE "SP_READ:", $00
+trace042:
+SP_READ_STR_ADDR:                           .WORD SP_READ_STR
+
+SP_WRITE_STR:                               .BYTE "SP_WRITE:", $00
+trace043:
+SP_WRITE_STR_ADDR:                          .WORD SP_WRITE_STR
+
+
+
 SP_CLOSE_STR:                               .BYTE "SP_CLOSE:",   $00
 trace013:
 SP_CLOSE_STR_ADDR:                          .WORD SP_CLOSE_STR
 
-SP_CONTROL_STR:                             .BYTE "SP_CONTROL:", $00
+SP_CONTROL_STR:                             .BYTE $0D, "SP_CONTROL:", $00
 trace014:
 SP_CONTROL_STR_ADDR:                        .WORD SP_CONTROL_STR
 
-SP_STATUS_STR:                              .BYTE "SP_STATUS:",  $0D, $00
+SP_STATUS_STR:                              .BYTE $0D, "SP_STATUS:", $00
 trace015:
 SP_STATUS_STR_ADDR:                         .WORD SP_STATUS_STR
 
@@ -141,11 +151,11 @@ FN_FIND_NETWORK_STR:                         .BYTE "FN_FIND_NETWORK"    , $0D, $
 trace021:
 FN_FIND_NETWORK_STR_ADDR:                    .WORD FN_FIND_NETWORK_STR
 
-FN_BYTES_WAITING_STR:                       .BYTE "FN_BYTES_WAITING", $0D, $00
+FN_BYTES_WAITING_STR:                       .BYTE "FN_BYTES_WAITING:", $00
 trace022:
 FN_BYTES_WAITING_STR_ADDR:                  .WORD FN_BYTES_WAITING_STR
 
-FN_IS_CONNECTED_STR:                        .BYTE "FN_IS_CONNECTED" , $0D, $00
+FN_IS_CONNECTED_STR:                        .BYTE "FN_IS_CONNECTED:" , $00
 trace023:
 FN_IS_CONNECTED_STR_ADDR:                   .WORD FN_IS_CONNECTED_STR
 

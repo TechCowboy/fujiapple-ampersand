@@ -14,7 +14,7 @@ STR_P:          .ASCIIZ " P:"
 
 STR_STACK:      .ASCIIZ "STACK:T"
 
-
+MACRO_A:        .BYTE 1
 TEMP_A:         .BYTE 1
 TEMP_X:         .BYTE 1
 TEMP_Y:         .BYTE 1

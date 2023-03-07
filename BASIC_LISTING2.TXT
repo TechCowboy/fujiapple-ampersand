@@ -9,13 +9,14 @@
  210 OS = 4: TR=2
  220 & NOPEN F,OS,TR,"N:HTTPS://www.gnu.org/licenses/gpl-3.0.txt"
  
- 300 PRINT "READ"
+ 300 B = 10
 
  330 A$="NOTHING"
- 340 & NREAD F,A$, 80
+ 
+ 340 & NREAD F,A$, B
  350 PRINT A$;
  360 & NSTATUS F, BW, CN, ER
- 370 IF ER = 0 THEN 330
+ 370 IF BW > 0 THEN 330
  
  400 PRINT "CLOSE"
  410 &NCLOSE F

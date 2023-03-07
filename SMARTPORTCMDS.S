@@ -31,7 +31,7 @@ SP_STATUS_RETURN_DATA   =       $06     ; RETURN BYTES/BLOCK PARAMETER FOR DEVIC
 SP_ERROR_OK             =       $00
 SP_ERROR_BAD_CMD        =       $01
 SP_ERROR_BAD_PCNT       =       $02     ; BAD CALL PARAMETER COUNT
-SP_ERROR_BUS_ERR        =       $06
+SP_ERROR_BUS_ERR        =       $06     ; bus error in IWM chip
 SP_ERROR_BAD_UNIT       =       $11     ; UNIT NUMBER $00 WAS USED
 SP_ERROR_BAD_CTRL       =       $21     ; CTRL OR STATUS CODE WAS NOT SUPPORTED
 SP_ERROR_BAD_CTRL_PARM  =       $22     ; CTRL PARAMTER LIST CONTAINS INVALID INFO
@@ -221,7 +221,7 @@ DUMP_SP_PAYLOAD_STR:
 
 
                 LDX #$00
-PPAYLOAD2:  
+PPAYLOAD3:  
                 TXA
                 PHA
                 LDA SP_PAYLOAD+5,X      ; STRING
@@ -231,7 +231,7 @@ PPAYLOAD2:
                 TAX
                 INX
                 CPX SP_PAYLOAD+4
-                BNE PPAYLOAD2
+                BNE PPAYLOAD3
 
                 JSR CROUT
                 RESTORE_REGS
@@ -396,7 +396,7 @@ NO_DISPATCHER:
 DONE:        
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
+.IF EXT2_TRACE
                 SAVE_REGS
                 PRINT_STR DISPATCHER_ADDRESS_STR_ADDR
 
@@ -432,7 +432,7 @@ DONE:
 SP_OPEN:
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
+.IF EXT2_TRACE
                 SAVE_REGS
                 TXA
                 PHA                                     ; STACK +1
@@ -470,13 +470,14 @@ relocatesp02:   .WORD CMD_LIST
 
                 BCC SP_OPEN_DONE
 OPEN_ERROR:
+.IF EXT2_TRACE
                 PHA
                 PRINT_STR SP_ERROR_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
                 JSR CROUT
-
+.ENDIF
 SP_OPEN_DONE:
 
                 RTS
@@ -495,7 +496,7 @@ SP_OPEN_DONE:
 SP_CLOSE:
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
+.IF EXT2_TRACE
                 SAVE_REGS
                 TXA
                 PHA
@@ -525,12 +526,13 @@ relocatesp03:   .WORD CMD_LIST
 
                 BCC SP_CLOSE_DONE
 CLOSE_ERROR:
+.IF EXT2_TRACE
                 PRINT_STR SP_ERROR_STR_ADDR
 
                 LDX CMD_LIST+1
                 JSR PRTX
                 JSR CROUT
-
+.ENDIF
 SP_CLOSE_DONE:
 
                 RTS
@@ -573,6 +575,7 @@ SP_CONTROL:
                 STY CMD_LIST+4
 
 .IF .NOT STRIP_TRACE
+.IF EXT2_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE14
@@ -597,6 +600,7 @@ SP_CONTROL:
 NO_TRACE14:                
                 RESTORE_REGS
 .ENDIF
+.ENDIF
 
                 LDA #SP_CONTROL_PARAM_COUNT     ; 3
                 STA CMD_LIST                    ; PARAMETER COUNT
@@ -611,12 +615,14 @@ relocatesp04:   .WORD CMD_LIST
                 BCS CTRL_ERROR
                 BCC SP_CTRL_DONE
 CTRL_ERROR:
+.IF EXT2_TRACE
                 PHA
                 PRINT_STR SP_ERROR_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
                 JSR CROUT
+.ENDIF
                 SEC
 
 SP_CTRL_DONE:
@@ -647,16 +653,13 @@ SP_CTRL_DONE:
 SP_READ:
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
+.IF EXT2_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE15
                 TXA
                 PHA
                 PRINT_STR SP_READ_STR_ADDR
-                LDA #COLON
-                JSR COUT
-                PRINT_STR UNIT_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
@@ -673,18 +676,26 @@ NO_TRACE15:
                 STA CMD_LIST+2                  ; [2] WHERE TO STORE DATA LO
                 LDA SP_PAYLOAD_ADDR+1
                 STA CMD_LIST+3                  ; [3] WHERE TO STORE DATA HI
-                STY CMD_LIST+4                  ; [4] LENGTH LO
+                STY CMD_LIST+4                  ; [4] Y = LENGTH LO ; yeah, max 255 byte payload...
                 LDA #$00
                 STA CMD_LIST+5                  ; [5] LENGTH HI
+
+                LDA CMD_LIST+4                  ; ADD THE PARAMETER LIST LENGTH TO THE BUFFER SIZE
+                CLC
+                ADC #SP_READ_PARAM_COUNT
+                STA CMD_LIST+4
+                LDA CMD_LIST+5
+                ADC #$00
+                STA CMD_LIST+5
 
                 ; *** Based on Smartport SCSI info below
                 ; *** Not sure if necessary
                 ; *** was not set in the example by Thom Cherryhomes
 
-                LDA #00
-                STA CMD_LIST+6                  ; [6] ???? BLOCK ADDRESS OF TARGET BLOCK
-                LDA #00
-                STA CMD_LIST+7                  ; [7] ????
+;                LDA #00
+;                STA CMD_LIST+6                  ; [6] ???? BLOCK ADDRESS OF TARGET BLOCK
+;                LDA #00
+;                STA CMD_LIST+7                  ; [7] ????
 
                 ; ***
                 
@@ -693,13 +704,13 @@ NO_TRACE15:
                 .BYTE SP_CMD_READ               ; READ CALL COMMAND NUMBER
 relocatesp05:   .WORD CMD_LIST
 
-                STX SP_COUNT+1
-                STY SP_COUNT
+                STX SP_COUNT
+                STY SP_COUNT+1
                 STA SP_ERR
                 BCC SP_READ_DONE
 
 ERROR:
-.IF EXT_TRACE
+.IF EXT2_TRACE
                 PHA
                 PRINT_STR SP_ERROR_STR_ADDR
                 PLA
@@ -744,7 +755,6 @@ SP_WRITE:
                 TXA
                 PHA
                 PRINT_STR SP_WRITE_STR_ADDR
-                PRINT_STR UNIT_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
@@ -762,15 +772,15 @@ NO_TRACE15:
                 LDA SP_PAYLOAD_ADDR+1
                 STY CMD_LIST+4                  ; Y=LENGTH LO
                 LDA #$00         
-                LDY CMD_LIST+5                  ; LENGTH HI
+                STA CMD_LIST+5                  ; LENGTH HI
 
                 ; *** Based on Smartport SCSI info below
                 ; *** Not sure if necessary
                 ; *** was not set in the example by Thom Cherryhomes
                 
-                LDA #0                          ; DATA POINTER
-                STA CMD_LIST+6                
-                STA CMD_LIST+7
+;                LDA #0                          ; DATA POINTER
+;                STA CMD_LIST+6                
+;                STA CMD_LIST+7
 
                 ; ***
    
@@ -779,21 +789,24 @@ NO_TRACE15:
                 .BYTE SP_CMD_WRITE             ; STATUS CALL COMMAND NUMBER
 relocatesp06:   .WORD CMD_LIST
 
-                STX SP_COUNT+1
-                STY SP_COUNT
+                STX SP_COUNT
+                STY SP_COUNT+1
                 STA SP_ERR
-                BCS ERROR2
-
                 BCC SP_WRITE_DONE
+
 ERROR2:
 
 .IF .NOT STRIP_TRACE
+.IF EXT2_TRACE
                 PHA
                 PRINT_STR SP_ERROR_STR_ADDR
                 PLA
+                PHA
                 TAX
                 JSR PRTX
                 JSR CROUT
+                PLA ; A = ERROR CODE
+.ENDIF
 .ENDIF
                 SEC
 SP_WRITE_DONE:
@@ -823,18 +836,18 @@ SP_STATUS:
 
 .IF .NOT STRIP_TRACE
 .IF EXT2_TRACE
+
                 SAVE_REGS
                 LDA TRACE_FLAG
-                BEQ NO_TRACE15
+                BEQ NO_TRACE35
                 TXA
                 PHA
                 PRINT_STR SP_STATUS_STR_ADDR
-                PRINT_STR UNIT_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
-                JSR CROUT
-NO_TRACE15:                
+
+NO_TRACE35:             
                 RESTORE_REGS
 .ENDIF
 .ENDIF
@@ -853,23 +866,31 @@ NO_TRACE15:
                 .BYTE SP_CMD_STATUS             ; STATUS CALL COMMAND NUMBER
 relocatesp07:   .WORD CMD_LIST
 
-                STX SP_COUNT+1
-                STY SP_COUNT
+                STX SP_COUNT
+                STY SP_COUNT+1
                 STA SP_ERR
                 BCC SP_STATUS_DONE
 
 ERROR3:
 .IF .NOT STRIP_TRACE
+.IF EXT2_TRACE
+                SAVE_REGS
                 PHA
                 PRINT_STR SP_ERROR_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
-                JSR CROUT
+.ENDIF
 .ENDIF
                 SEC
 SP_STATUS_DONE:
+.IF .NOT STRIP_TRACE
+.IF EXT2_TRACE
 
+                JSR CROUT
+
+.ENDIF
+.ENDIF
                 RTS
 .ENDIF
 
@@ -908,7 +929,7 @@ NO_TRACE16:
 DISPLAY_SP_STATUS:
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
+.IF EXT2_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE17
@@ -1055,7 +1076,7 @@ FIND_DEVICE_BUF_ADDR:   .WORD FIND_DEVICE_BUF
 SP_FIND_DEVICE:
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
+.IF EXT2_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE18
@@ -1083,7 +1104,7 @@ GOT_LENGTH:
                 STX FIND_DEVICE_BUF_LEN                 ; SAVE THE LENGTH INCLUDES NULL
 
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
+.IF EXT2_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE19

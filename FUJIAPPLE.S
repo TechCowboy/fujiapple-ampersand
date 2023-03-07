@@ -38,7 +38,7 @@
 ;
 ; EXT_TRACE and EXT2_TRACE includes calls into the SMARTPORT routines
 
-STRIP_TRACE= 1  ; Eliminate all tracing code and strings
+STRIP_TRACE= 0  ; Eliminate all tracing code and strings
 EXT_TRACE  = 0  ; Extended Trace, 1=display SMARTPORT internal debug messages 
 EXT2_TRACE = 0  ; Extended Trace 2, display SP_STATUS and CALL_DISPATCHER
 RELOCATE   = 0  ; 1=relocate himem and put our code there
@@ -102,16 +102,24 @@ NINIT:
         LDY #>TEST_STR
         JSR STROUT
 
-        JSR PRINT_STACK
-        BRK
-
         JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
 
-        JSR FN_READ
-;        
-;        JSR FN_FIND_NETWORK
-;        JSR FN_OPEN
-;        JSR PRINT_REGS
+        JSR FN_FIND_NETWORK
+        TXA
+        PHA
+        TAX
+        JSR FN_OPEN
+        JSR PRINT_REGS
+
+        PLA
+        PHA
+        TAX
+        JSR FN_BYTES_WAITING
+
+        PLA
+        TAX
+        JSR FN_IS_CONNECTED
+        JSR PRTAX
 
         RTS
 
@@ -471,22 +479,39 @@ DISPLAY_INTERNAL_STATE:
                 RTS
 
 ;*************************************
+;*************************************
+;*************************************
+;*************************************
+
+IGNORE_TO_NEXT_BASIC_STATEMENT:
+                JSR CHRGOT              
+                BEQ RETURN_TO_BASIC     ; 0 = END OF LINE
+                CMP #':'
+                BEQ RETURN_TO_BASIC
+
+                JSR CHRGET
+                CLC
+                BCC IGNORE_TO_NEXT_BASIC_STATEMENT
+
+RETURN_TO_BASIC:
+                RTS
+
 NOPEN:
 ; &NOPEN UNIT,MODE,TRANS,URL$
 ; &NOPEN UNIT,MODE,TRANS,"URL"
 ;
 ; Opens a specified URL for use.
 ;
-; UNIT = 0-4 NETWORK
-; MODE = 4-READ ONLY
-;        6-READ DIRECTORY
-;        8-WRITE ONLY
-;        12-READ AND WRITE
-;        13-HTTP POST
+; UNIT = 0-4 BASIC NETWORK (not Fujinet unit number)
+; MODE = 04-READ ONLY
+;        06-READ DIRECTORY
+;        08-WRITE ONLY
+;        0C-READ AND WRITE
+;        0E-HTTP POST
 ; TRANS= 0-NO TRANSLATION
-;        1-CR TO ATASCII
-;        2-LF TO ATASCII EOL
-;        3-CR/LF TO ATASCII EOL
+;        1-CR TO CR (yeah, does nothing)
+;        2-LF TO CR 
+;        3-CR/LF TO CR
 
 .IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
@@ -494,8 +519,10 @@ NOPEN:
                 PRINT_STR NOPEN_STR_ADDR        ; "NOPEN"
 NO_TRACE1:
 .ENDIF
-                JSR GETBYT                      ; GET THE UNIT
+
+                JSR GETBYT                      ; GET THE BASIC UNIT
                 STX BASIC_UNIT        
+
 .IF .NOT STRIP_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE32
@@ -505,25 +532,36 @@ NO_TRACE1:
                 RESTORE_REGS
 NO_TRACE32:
 .ENDIF
-                CPX #$04       
+                CPX #$04                        ; BASIC UNIT HAS TO BE BETWEEN 0-3
                 BMI UNIT_OK1                    ; OUT OF RANGE?
 
                 LDX #ILLEGAL_QUANTITY_ERROR     ; MUST BE BETWEEN 0 AND 3
                 JMP APPLESOFT_ERROR
                
 UNIT_OK1:
-                LDX BASIC_UNIT                  ; WHICH NETWORK TO FIND 0-4
-                JSR FN_FIND_NETWORK             ; FUJINET UNIT WILL BE IN X
-                CPX #$FF                        ; IT *SHOULD* ALWAYS BE FOUND
-                BNE NET_FOUND
-                PRINT_STR NETWORK_NOT_FOUND_STR_ADDR
-                LDX #ILLEGAL_QUANTITY_ERROR
-                JMP APPLESOFT_ERROR
+                LDA BASIC_UNIT
+                JSR FN_FIND_NETWORK             ; FUJINET UNIT WILL BE RETURN IN X
+                CPX #$FF                        ; NETWORK WAS NOT FOUND!
+                BNE NOPEN_NETWORK_FOUND
 
-NET_FOUND:
-                TXA                             ; THIS IS THE ACTUAL NUMBER NUMBER
+NO_NETWORK_ERROR:
+                LDA BASIC_UNIT
+                TAX
+                LDA #FN_ERR_SERVICE_NOT_AVAILABLE ; CAN'T FIND THE SPECIFIED NETWORK (E.G. NETWORK_1 WAS NOT FOUND)
+                STA NERR,X                      ; RECORD THE ERROR
+                LDA #$FF                        ; INDICATE THIS BASIC_UNIT IS CLOSED
+                STA NETWORK,X
+                JSR IGNORE_TO_NEXT_BASIC_STATEMENT
+                RTS
+
+NOPEN_NETWORK_FOUND:
+                ; NETWORK: WW XX YY ZZ - WHERE EACH BYTE IS THE ACTUAL UNIT NUMBER
+                TXA                             ; TODO:  change fn_find_network to return result in y
+                TAY
+
                 LDX BASIC_UNIT                  ; LOAD THE "BASIC" UNIT NUMBER
-                STA NETWORK, X                  ; STORE THE ACTUAL NUMBER NUMBER FOR LATER USE
+                TYA
+                STA NETWORK, X                  ; STORE THE ACTUAL UNIT NUMBER FOR LATER USE
 
                 JSR CHKCOM
                 JSR GETBYT                      ; GET MODE
@@ -565,20 +603,11 @@ STORING:
                 DEY
                 BPL STORING
 
-; MAKE THE STRING C COMPATIBLE
+; MAKE THE STRING C COMPATIBLE -- DO I NEED TO DO THIS????
 
                 LDY DSCTMP
                 LDA #0                          ; NULL TERMINATE THE STRING
                 STA URL,Y
-
-;.IF .NOT STRIP_TRACE
-;                PHA
-;                LDA TRACE_FLAG
-;                BEQ NO_TRACE31
-;                JSR DISPLAY_INTERNAL_STATE
-;NO_TRACE31:
-;                PLA
-;.ENDIF
 
                 LDX BASIC_UNIT                  ; BASIC UNIT 0-4
                 LDA NETWORK,X                   ; FUJINET UNIT
@@ -623,11 +652,13 @@ NO_TRACE34:
                 LDX BASIC_UNIT
                 LDA NETWORK, X  ; THIS IS THE ACTUAL UNIT NUMBER
                 TAX
+
                 JSR FN_CLOSE
-                LDX BASIC_UNIT
+
+                LDX BASIC_UNIT  ; SAVE ANY ERROR THAT OCCURED DURING CLOSE
                 STA NERR,X
 
-                LDA #$FF
+                LDA #$FF        ; REGARDLESS, INDICATE BASIC UNIT IS CLOSED
                 STA NETWORK, X
                 RTS
 
@@ -647,10 +678,13 @@ NO_TRACE3:
                 STX   BASIC_UNIT
 
 .IF .NOT STRIP_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE36
                 SAVE_REGS
                 JSR PRTX
                 JSR CROUT
                 RESTORE_REGS
+NO_TRACE36:
 .ENDIF
 
                 JSR CHKCOM
@@ -668,7 +702,7 @@ NO_TRACE3:
                 STA STR_DSC_HI
 
                 JSR CHKCOM
-                JSR GETBYT                      ; GET THE NUMBER OF CHARACTESR TO READ 
+                JSR GETBYT                      ; GET THE NUMBER OF CHARACTERS TO READ 
                 STX BUFLEN
                 TXA
 
@@ -678,16 +712,23 @@ NO_TRACE3:
                 CMP #$FF                        ; $FF INDICATES IT WAS NEVER OPENED
                 BNE UNIT_OK2
 
-                PRINT_STR NOT_OPENED_STR_ADDR
-                JMP SYNERR
+                LDA #FN_ERR_NOT_CONNECTED       ; RETURN ERROR THAT WE WERE NEVER CONNECTED
+                STA NERR,X
+                RTS
 
 UNIT_OK2:
                 TAX 
                 JSR FN_READ                     ; REQUEST THE DATA FROM FUJINET
-                STA NERR
+                STA NERR,X
                 CPX #$FF
-                BEQ NREAD_ERROR
-                
+                BNE TRANSFER_VALUES
+
+NREAD_ERROR:
+                ; ERROR VALUE WILL ALREADY BE IN NERR,X FOR USER TO COLLECT
+
+                RTS
+
+TRANSFER_VALUES:                
                 ; TODO:
                 ; Adjust BUFLEN to the actual amount of
                 ; characters read
@@ -730,13 +771,7 @@ UNIT_OK2:
                 JSR MOVSTR                      ; COPY BUFFER TO STRING (VAR$)
                 
                 RTS
-NREAD_ERROR:
 
-.IF .NOT STRIP_TRACE
-                PRINT_STR NREAD_ERROR_STR_ADDR  ; THERE WAS AN ERROR READING
-.ENDIF
-
-                RTS
 ;*****************************************************
 NWRITE:
 ; &NWRITE UNIT,VAR$,LEN
@@ -753,10 +788,13 @@ NO_TRACE4:
                 STX   BASIC_UNIT
 
 .IF .NOT STRIP_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE37
                 SAVE_REGS
                 JSR PRTX
                 JSR CROUT
                 RESTORE_REGS
+NO_TRACE37:
 .ENDIF
 
                 JSR   CHKCOM
@@ -817,10 +855,13 @@ NO_TRACE5:
                 STX BASIC_UNIT
 
 .IF .NOT STRIP_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE38
                 SAVE_REGS
                 JSR PRTX
                 JSR CROUT
                 RESTORE_REGS
+NO_TRACE38:
 .ENDIF
 
                 JSR CHKCOM
@@ -883,26 +924,19 @@ NO_TRACE6:
                 STX BASIC_UNIT       ; STORE THE UNIT NUMBER
 
 .IF .NOT STRIP_TRACE
+                LDA TRACE_FLAG
+                BEQ NO_TRACE39
                 SAVE_REGS
                 JSR PRTX
                 JSR CROUT
                 RESTORE_REGS
+NO_TRACE39:
 .ENDIF
                 JSR CHKCOM
-
-                JSR FN_IS_CONNECTED
-
-;******* TO DO *******
-;* GET BYTES WAITING AND STORE IN BW - DONE
-;* GET CONNECTED STATE AND STORE IN CONNECT - DONE
-;* GET ERROR VALUE AND STORE IN NERR - TODO
-;*********************
 
                 LDX BASIC_UNIT
                 LDA NETWORK,X                
                 TAX
-
-                LDA NETWORK,X
                 CMP #$FF
                 BNE UNIT_OK3
 
@@ -911,13 +945,21 @@ NO_TRACE6:
 
                 PRINT_STR NOT_OPENED_STR_ADDR
                 JMP SYNERR
-               
-                ; GET BYTES WAITING
-                JSR FN_BYTES_WAITING
-                STA BW
-                STY BW+1
-                
+
 UNIT_OK3:
+
+                JSR FN_IS_CONNECTED
+                STA CONNECT
+
+;******* TO DO *******
+;* GET BYTES WAITING AND STORE IN BW - DONE
+;* GET CONNECTED STATE AND STORE IN CONNECT - DONE
+;* GET ERROR VALUE AND STORE IN NERR - TODO
+;*********************
+
+                JSR FN_BYTES_WAITING    ; GET BYTES WAITING
+                STY BW
+                STA BW+1
 
                 LDX BASIC_UNIT
                 LDA NETWORK,X 
@@ -928,14 +970,15 @@ UNIT_OK3:
                 LDX BASIC_UNIT
                 LDA NETWORK,X 
                 TAX
-                ; TODO: GET LAST ERROR HERE
-                LDY #$00                ; GET ERROR VALUE
-                STY NERR
+
+                JSR FN_BYTES_WAITING
+                STA BW+1
+                STY BW
 
                 ; SEND TO BASIC
 
-                LDA BW+1       ; NUMBER OF BYTES WAITING
-                LDY BW
+;                LDA BW+1       ; NUMBER OF BYTES WAITING
+;                LDY BW
                 JSR WORDSAV    ; CONVERT TO FLOAT AND STORE IN BW VAR
 
                 JSR CHKCOM
@@ -943,7 +986,12 @@ UNIT_OK3:
                 JSR BYTESAV    ; CONVERT TO FLOAT AND STORE IN CONNECT VAR
 
                 JSR CHKCOM
-                LDY NERR
+                LDX BASIC_UNIT
+                LDA NETWORK,X
+                TAX
+
+                LDA NERR,X 
+                TAY
                 JSR BYTESAV    ; CONVERT TO FLOAT AND STORE IN NERR VAR
                 RTS
 
@@ -1137,10 +1185,14 @@ OLDHIMEM:       .RES    2       ; VALUE OF ORIGINAL HIMEM
 
 ;***************************************
 BASIC_UNIT:     .BYTE   0       ; BASIC UNIT 0-4 NOT FUJINET UNIT
-MODE:           .BYTE   0       ; 4=READ ONLY, 6=READ DIRECTORY, 8= WRITE ONLY, 12=READ/WRITE, 13= HTTP POST
+MODE:           .BYTE   4       ; 4=READ ONLY, 6=READ DIRECTORY, 8= WRITE ONLY, 12=READ/WRITE, 13= HTTP POST
 TRANSLATION:    .BYTE   0       ; 0 = NO TRANSLATION, 1=CR to ATASCII EOL, 2=LF to ATASCII EOL, 3=CR/LF to ATASCII EOL
-URL_LEN:        .BYTE   0
-URL:            .RES    255       
+URL_LEN:        .BYTE   45
+URL:            
+.IF .NOT STRIP_TRACE
+                .ASCIIZ "N:HTTPS://www.gnu.org/licenses/gpl-3.0.txt"
+.ENDIF
+                .RES    255       
 relocate009:
 URL_ADDR:       .WORD   URL
 COMMAND:        .BYTE   0       ; FUJINET COMMAND
