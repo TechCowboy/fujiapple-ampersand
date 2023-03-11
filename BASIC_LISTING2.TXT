@@ -4,18 +4,24 @@
 
  100 F = 0
  110 BW = 255:CN = 255:NE = 255
-
+ 120 & NTRACE
+ 
  200 PRINT "OPEN"
  210 OS = 4: TR=2
- 220 & NOPEN F,OS,TR,"N:HTTPS://www.gnu.org/licenses/gpl-3.0.txt"
- 
+ 215 F$="N:HTTPS://www.gnu.org/licenses/gpl-3.0.txt"
+ 220 & NOPEN F,OS,TR, F$
+ 230 INPUT A$
  300 B = 10
 
  330 A$="NOTHING"
  
  340 & NREAD F,A$, B
  350 PRINT A$;
+ 355 INPUT A$
+ 
  360 & NSTATUS F, BW, CN, ER
+ 365 PRINT "F:";F;" BW:";BW;" CN:";CN;" ER:";ER
+ 365 INPUT A$
  370 IF BW > 0 THEN 330
  
  400 PRINT "CLOSE"
