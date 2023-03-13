@@ -7,32 +7,35 @@
     .include "REGS.S"
 
 FN_OK                   = 0
-FN_ERR_WRITE_ONLY       = 131	    ;Protocol is in Write-only mode
-FN_ERR_INVALID_COMMAND  = 132	    ;Protocol was sent an invalid command
-FN_ERR_MISSING_PROTO    = 133	    ;No protocol attached.
-FN_ERR_READ_ONLY        = 135	    ;Protocol is in read-only mode
-FN_ERR_TIMED_OUT        = 138	    ;Timed out
-FN_ERR_CRITICAL         = 144	    ;A critical error occurred. SIO reports this, get the actual Error code from byte 4 of STATUS.
-FN_ERR_CMD_NOT_IMPLEMENTED = 146	;Command not implemented
-FN_ERR_FILE_EXISTS      = 151	    ;File Exists
-FN_ERR_NO_SPACE         = 162	    ;No space on device
-FN_ERR_INVALID_URL      = 165	    ;Invalid Devicespec
-FN_ERR_ACCESS_DENIED    = 167	    ;Access Denied
-FN_ERR_FILE_NOT_FOUND   = 170	    ;File not found (emitted by filesystem adaptors)
-FN_ERR_REFUSED          = 200	    ;Connection Refused (equivalent to errno ECONNREFUSED)
-FN_ERR_UNREACHABLE      = 201	    ;Network Unreachable (equivalent to errno ENETUNREACH)
-FN_ERR_CONNECTION_TIMEOUT   = 202	;Connection Timeout (equivalent to errno ETIMEDOUT)
-FN_ERR_NETWORK_DOWN     = 203	    ;Network is down (equivalent to errno ENETDOWN)
-FN_ERR_CONNECTION_RESET = 204	    ;Connection was reset during read/write (equivalent to errno ECONNRESET)
-FN_ERR_CIP              = 205	    ;Connection in progress (EAGAIN)
-FN_ERR_ADDRESS_IN_USE   = 206	    ;Address in use (EADDRINUSE)
-FN_ERR_NOT_CONNECTED    = 207	    ;Not Connected
-FN_ERR_SERVER_NOT_RUNNING = 208	    ;Server not Running
-FN_ERR_NO_CONNECTION_WAITING = 209	;No connection waiting
-FN_ERR_SERVICE_NOT_AVAILABLE = 210	;Service Not Available
-FN_ERR_CONNECTION_ABORTED = 211	    ;Connection Aborted
-FN_ERR_BAD_CREDENTIALS  = 212	    ;Invalid Username or Password (debating whether to overload as access denied.)
-FN_ERR_MEMORY_ERROR     = 255	    ;Could not allocate either receive or transmit buffers.
+FN_ERR                  = $FE
+FN_NO_NETWORK           = $FD
+
+FN_ERR_WRITE_ONLY       = 131	    ;$83 Protocol is in Write-only mode
+FN_ERR_INVALID_COMMAND  = 132	    ;$84 Protocol was sent an invalid command
+FN_ERR_MISSING_PROTO    = 133	    ;$85 No protocol attached.
+FN_ERR_READ_ONLY        = 135	    ;$86 Protocol is in read-only mode
+FN_ERR_TIMED_OUT        = 138	    ;$8A Timed out
+FN_ERR_CRITICAL         = 144	    ;$90 A critical error occurred. SIO reports this, get the actual Error code from byte 4 of STATUS.
+FN_ERR_CMD_NOT_IMPLEMENTED = 146	;$92 Command not implemented
+FN_ERR_FILE_EXISTS      = 151	    ;$97 File Exists
+FN_ERR_NO_SPACE         = 162	    ;$A2 No space on device
+FN_ERR_INVALID_URL      = 165	    ;$A5 Invalid Devicespec
+FN_ERR_ACCESS_DENIED    = 167	    ;$A7 Access Denied
+FN_ERR_FILE_NOT_FOUND   = 170	    ;$AA File not found (emitted by filesystem adaptors)
+FN_ERR_REFUSED          = 200	    ;$C8 Connection Refused (equivalent to errno ECONNREFUSED)
+FN_ERR_UNREACHABLE      = 201	    ;$C9 Network Unreachable (equivalent to errno ENETUNREACH)
+FN_ERR_CONNECTION_TIMEOUT   = 202	;$CA Connection Timeout (equivalent to errno ETIMEDOUT)
+FN_ERR_NETWORK_DOWN     = 203	    ;$CB Network is down (equivalent to errno ENETDOWN)
+FN_ERR_CONNECTION_RESET = 204	    ;$CC Connection was reset during read/write (equivalent to errno ECONNRESET)
+FN_ERR_CIP              = 205	    ;$CD Connection in progress (EAGAIN)
+FN_ERR_ADDRESS_IN_USE   = 206	    ;$CE Address in use (EADDRINUSE)
+FN_ERR_NOT_CONNECTED    = 207	    ;$CF Not Connected
+FN_ERR_SERVER_NOT_RUNNING = 208	    ;$D0 Server not Running
+FN_ERR_NO_CONNECTION_WAITING = 209	;$D1 No connection waiting
+FN_ERR_SERVICE_NOT_AVAILABLE = 210	;$D2 Service Not Available
+FN_ERR_CONNECTION_ABORTED = 211	    ;$D3 Connection Aborted
+FN_ERR_BAD_CREDENTIALS  = 212	    ;$D4 Invalid Username or Password (debating whether to overload as access denied.)
+FN_ERR_MEMORY_ERROR     = 255	    ;$FF Could not allocate either receive or transmit buffers.
 
 FN_LAST_ERR:            .BYTE $00
 
@@ -76,36 +79,19 @@ GOT_LENGTH2:
 ;  A = high address
 ;  Y = low address
 ; RETURNS
-;  X = String length
+;
 ;******************************************************************
 CPY_URL_TO_SP_PAYLOAD:
 
+
+                LDX URL_LEN
+                LDA #$00
+                STA SP_PAYLOAD+4,X  ; NULL TERMINATE STRING
+
                 LDA URL_ADDR        ; STRING WITHOUT LENGTH
                 LDY URL_ADDR+1
-                
-                STA ZP1_LO
-                STY ZP1_HI
-                
-                LDX #$00
-                LDY #$00
-LOOK_FOR_NULL3:
-                LDA (ZP1),Y
-                STA SP_PAYLOAD+4,X 
-                BEQ GOT_LENGTH3
-                INY
-                INX
-                CLC
-                BCC LOOK_FOR_NULL3
+                JSR CPY_BUF_TO_SP_PAYLOAD                    
 
-GOT_LENGTH3:
-                INX                     
-                LDA #$00                ; NULL TERMINATE STRING
-                STA SP_PAYLOAD+5,X
-
-;                TXA
-;                STA SP_PAYLOAD+4        ; STORE LENGTH
-
-;                TAX                     ; RETURN LENGTH
                 RTS
 
 ;******************************************************************
@@ -117,33 +103,27 @@ GOT_LENGTH3:
 ;  A = high address
 ;  Y = low address
 ; RETURNS
-;  X = String length
+;
 ;******************************************************************
 CPY_BUF_TO_SP_PAYLOAD:
                 
+                STX ZP2
                 STA ZP1_LO
                 STY ZP1_HI
                 
                 LDX #$00
                 LDY #$00
-LOOK_FOR_NULL4:
+KEEP_CALM_AND_CARRY_ON:
                 LDA (ZP1),Y
-                STA SP_PAYLOAD+4,X 
-                BEQ GOT_LENGTH4
+                STA SP_PAYLOAD+4,X
+                CPX ZP2
+                BEQ CPY_DONE
                 INY
                 INX
                 CLC
-                BCC LOOK_FOR_NULL4
+                BCC KEEP_CALM_AND_CARRY_ON
 
-GOT_LENGTH4:
-                INX                     
-                LDA #$00                ; NULL TERMINATE STRING
-                STA SP_PAYLOAD+5,X
-
-;                TXA
-;                STA SP_PAYLOAD+4        ; STORE LENGTH
-
-;                TAX                     ; RETURN LENGTH
+CPY_DONE:
                 RTS
 
 ;******************************************************************
@@ -162,7 +142,6 @@ FN_OPEN:
                 LDA TRACE_FLAG
                 BEQ NO_TRACE20
                 PRINT_STR FN_OPEN_STR_ADDR
-                PRINT_STR UNIT_STR_ADDR
                 PLA
                 PHA
                 TAX
@@ -186,15 +165,20 @@ NO_TRACE20:
 OPEN_ERR:
 
 .IF .NOT STRIP_TRACE
+.IF .NOT EXT_TRACE
                 LDA #<OPEN_ERR_STR
                 LDY #>OPEN_ERR_STR
 
                 JSR STROUT
+                LDX FN_LAST_ERR
+                JSR PRTX
                 JSR CROUT
+.ENDIF
 .ENDIF
                 PLA
                 SEC
-                LDX FN_LAST_ERR
+                LDX #FN_ERR
+                LDA FN_LAST_ERR
                 RTS
 
 CONT2:
@@ -211,10 +195,18 @@ CONT2:
 ;4...   url
                 ; STAGE #2
                 ; SET PAYLOAD SIZE
-                LDY #$02                    ; PAYLOAD SIZE = $102 = 258 BYTES
+                LDY #$04                    ; PAYLOAD SIZE = 3 + NULL ON STRING
                 STY SP_PAYLOAD
-                LDY #$01
+                LDY #$00
                 STY SP_PAYLOAD+1
+
+                LDA URL_LEN                 ; PAYLOAD += URL_LEN
+                CLC
+                ADC SP_PAYLOAD
+                STA SP_PAYLOAD
+                LDA SP_PAYLOAD+1
+                ADC #$00                    
+                STA SP_PAYLOAD+1
        
                 ; FILL PAYLOAD - Read/write mode
                 LDA MODE                    ; READ OR WRITE OR BOTH
@@ -228,6 +220,7 @@ CONT2:
                 JSR CPY_URL_TO_SP_PAYLOAD   ; TRANSFER THE URL
 
 .IF .NOT STRIP_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE21
@@ -241,10 +234,11 @@ CONT2:
                 JSR PRINT_X
                 
                 PRINT_STR PAYLOAD_STR_ADDR
-                JSR DUMP_SP_PAYLOAD        ; PRINT THE URL
+                ;JSR DUMP_SP_PAYLOAD        ; PRINT THE URL
                 JSR CROUT
 NO_TRACE21:              
                 RESTORE_REGS
+.ENDIF
 .ENDIF
 
                 PLA                         ; GET BACK OUR DEVICE NUMBER
@@ -262,14 +256,17 @@ CTRL_ERR:
                 LDA #<CTRL_ERR_STR
                 LDY #>CTRL_ERR_STR
                 JSR STROUT
+                LDX FN_LAST_ERR
+                JSR PRTX
                 JSR CROUT
 .ENDIF
                 SEC
-                LDX FN_LAST_ERR
+                LDX #FN_ERR
+                LDA FN_LAST_ERR
                 RTS
 
 OPEN_OK2:
-                LDX FN_LAST_ERR
+                LDX #FN_OK
                 RTS
 
 
@@ -294,14 +291,17 @@ OPEN_OK2:
 ;'D'
 ; set UDP destination
 
+
+NON_CONTROL = 1
+.IF .DEFINED(NON_CONTROL)
 ;******************************************************************
-; FN_READ
+; FN_READ - SMARTPORT VERSION
 ; Read the specified UNIT
 ;
 ; INPUT
 ; X = UNIT DESTINATION
+; BUFLEN = NUMBER OF BYTES TO READ
 ;******************************************************************
-
 FN_READ:
 
 .IF .NOT STRIP_TRACE
@@ -338,16 +338,158 @@ READ_ERR:
                 JSR DUMP_SP_PAYLOAD
 .ENDIF
 
-                LDX FN_LAST_ERR
+                LDX #FN_ERR
+                LDA FN_LAST_ERR
                 CLC
                 BCC READ_DONE
 READ_OK:
    
-                LDX FN_LAST_ERR
+                LDX #FN_OK
 READ_DONE:
                 LDY SP_COUNT
-                LDA SP_ERR
+                LDA LAST_SP_ERR
                 RTS
+.ELSE
+
+;******************************************************************
+; FN_READ - CONTROL VERSION
+; Read the specified UNIT
+;
+; INPUT
+; X = UNIT DESTINATION
+; BUFLEN = NUMBER OF BYTES TO READ
+;******************************************************************
+
+FN_READ:
+
+.IF .NOT STRIP_TRACE
+                SAVE_REGS
+                TXA
+                PHA
+                LDA TRACE_FLAG
+                BEQ NO_TRACE22
+
+                PRINT_STR FN_READ_STR_ADDR
+                PLA
+                PHA
+                TAX
+                JSR PRTX
+                JSR CROUT
+NO_TRACE22:     
+                PLA          
+                RESTORE_REGS
+
+.ENDIF
+
+;'R'
+;0-1   payload size (bytes to return)
+;2..   data
+;
+                ; SET PAYLOAD SIZE
+
+                LDY BUFLEN              ; PAYLOAD SIZE
+                LDY #255
+                STY SP_PAYLOAD
+                LDA #$00
+                STA SP_PAYLOAD+1
+                LDY #'R'
+                JSR SP_CONTROL
+                STA FN_LAST_ERR
+                BCC READ_OK
+
+READ_ERR:
+
+
+.IF .NOT STRIP_TRACE                
+                PRINT_STR FN_READ_ERROR_STR_ADDR
+                JSR DUMP_SP_PAYLOAD
+.ENDIF
+
+                LDX #FN_ERR
+                LDA FN_LAST_ERR
+                CLC
+                BCC READ_DONE
+READ_OK:
+
+.IF .NOT STRIP_TRACE
+                JSR DUMP_SP_PAYLOAD   
+.ENDIF
+                LDX #FN_OK
+READ_DONE:
+                LDY SP_COUNT
+                LDA LAST_SP_ERR
+                RTS
+.ENDIF
+
+
+;******************************************************************
+; FN_WRITE
+; Read the specified UNIT
+;
+; INPUT
+; X = UNIT DESTINATION
+; BUFLEN = NUMBER OF BYTES TO WRITE
+; BUF = BUFFER TO SEND
+;******************************************************************
+
+FN_WRITE:
+
+.IF .NOT STRIP_TRACE
+                SAVE_REGS
+                TXA
+                PHA
+                LDA TRACE_FLAG
+                BEQ NO_TRACE41
+
+                PRINT_STR FN_WRITE_STR_ADDR
+                PLA
+                PHA
+                TAX
+                JSR PRTX
+                JSR CROUT
+NO_TRACE41:     
+                PLA          
+                RESTORE_REGS
+
+.ENDIF
+
+               JSR CPY_BUF_TO_SP_PAYLOAD
+
+;'W'
+; 0-1  payload size (bytes to write)
+; 2..  data
+                ; SET PAYLOAD SIZE
+
+                LDY BUFLEN              ; PAYLOAD SIZE
+                STY SP_PAYLOAD
+                LDA #$00
+                STA SP_PAYLOAD+1
+                LDY #'W'
+                JSR SP_CONTROL
+                STA FN_LAST_ERR
+                BCC WRITE_OK
+
+WRITE_ERR:
+
+
+.IF .NOT STRIP_TRACE                
+                PRINT_STR FN_WRITE_ERROR_STR_ADDR
+                JSR DUMP_SP_PAYLOAD
+.ENDIF
+
+                LDX #FN_ERR
+                LDA FN_LAST_ERR
+                CLC
+                BCC WRITE_DONE
+WRITE_OK:
+   
+                LDX #FN_OK
+WRITE_DONE:
+                LDY SP_COUNT
+                LDA LAST_SP_ERR
+                RTS
+
+
 
 ;******************************************************************
 ; FN_CLOSE
@@ -387,7 +529,7 @@ NO_TRACE33:
                 BCC CLOSE_OK
 
                 PLA
-                LDX #$FF
+                LDX #FN_ERR
 
 .IF .NOT STRIP_TRACE                
                 PRINT_STR CLOSE_ERROR_STR_ADDR
@@ -404,73 +546,18 @@ CLOSE_OK:
 CLOSE_DONE:
                 RTS
 
+
 ;******************************************************************
-; FN_IS_CONNECTED
-; Is this unit connected to a site
+; FN_STATUS
+;  Number of characters in the buffer and if connected
 ;
 ; INPUT
 ; X = UNIT DESTINATION
-; RETURN
-; A = 1 IF CONNECTED, 0 IF NOT
+; RETURNS
+; A = number of bytes waiting lo
+; Y = number of bytes waiting hi
 ;******************************************************************
-; X = DEVICE
-
-;bool isConnected(void)
-;{
-;  sp_status(net,'S');
-;  return sp_payload[2] & 0x02; // Bit 2 = Connected?
-;}
-
-FN_IS_CONNECTED:
-
-.IF .NOT STRIP_TRACE
-.IF EXT_TRACE
-                SAVE_REGS
-                LDA TRACE_FLAG
-                BEQ NO_TRACE23
-                TXA
-                PHA
-                PRINT_STR FN_IS_CONNECTED_STR_ADDR
-                PRINT_STR UNIT_STR_ADDR
-                PLA
-                TAX
-                JSR PRTX
-
-NO_TRACE23:                
-                RESTORE_REGS
-.ENDIF
-.ENDIF
-
-                LDY #'S'
-                JSR SP_STATUS
-                STA FN_LAST_ERR
-                BCC CONNECT_CONT
-                LDX #$FF
-                RTS
-
-CONNECT_CONT:
-                LDX #FN_OK
-                LDA SP_PAYLOAD+2
-                AND #$02
-                ROR
-
-.IF EXT_TRACE
-                SAVE_REGS
-                TAX
-                JSR PRTX
-                JSR CROUT
-                RESTORE_REGS
-.ENDIF
-                RTS
-
-;******************************************************************
-; FN_BYTES_WAITING
-; Number of characters in the buffer
-;
-; INPUT
-; X = UNIT DESTINATION
-;******************************************************************
-FN_BYTES_WAITING:
+FN_STATUS:
 
 .IF .NOT STRIP_TRACE
 .IF EXT_TRACE
@@ -504,20 +591,22 @@ NO_TRACE24:
                 STA FN_LAST_ERR
                 BCC BW_OK
 BW_ERROR:                
-                LDX #$FF
+                LDX #FN_ERR
                 BCS BW_DONE
 BW_OK:
-                LDA SP_PAYLOAD
+                LDA SP_PAYLOAD      ; Bytes Waiting
                 LDY SP_PAYLOAD+1
+                STA BW
+                STY BW+1
+                LDA SP_PAYLOAD+2
+                AND #$02
+                STA CONNECT
 .IF .NOT STRIP_TRACE
-.IF EXT_TRACE
-                PHA
-                TYA
-                TAX
-                PLA
-                JSR PRTAX
+.IF EXT_TRACE                
                 LDA SP_PAYLOAD
-                LDY SP_PAYLOAD+1
+                LDX SP_PAYLOAD+1
+                JSR PRTAX
+                LDX #FN_OK
 .ENDIF
 .ENDIF
 
@@ -529,19 +618,18 @@ BW_DONE:
 ; Return the Unit number for a device
 ;
 ; INPUT
-;   A = High byte address of string
-;   Y = Low byte address of string
-;   X = Device number or $FF on failure
+;   BASIC_UNIT - Set between 0 and 3 as the network device to find
+; RETURN
+;   X - FN_ERR or UNIT number of device found
 ;******************************************************************
 FN_FIND_NETWORK:
 
 .IF .NOT STRIP_TRACE
-                SAVE_REGS
+
                 LDA TRACE_FLAG
                 BEQ NO_TRACE25
                 PRINT_STR FN_FIND_NETWORK_STR_ADDR
 NO_TRACE25:                
-                RESTORE_REGS
 .ENDIF
 
                 LDA BASIC_UNIT
@@ -551,29 +639,35 @@ NO_TRACE25:
                 ; LOOK FOR "NETWORK"
                 LDA NETWORK_STR_ADDR+1
                 LDY NETWORK_STR_ADDR
-            
+         
                 JSR SP_FIND_DEVICE          ; LOOK FOR "NETWORK"
-                CPX #$FF
-                BNE FIND_COMPLETED
+                CPX #SP_ERR
+                BNE FOUND_IT
 
 MULTI_NETWORK:
                 ; IF WE'RE HERE, THEN WE DIDN'T FIND "NETWORK"
                 ; OR A UNIT NUMBER GREATER THAN ZERO WAS SPECIFIED.
-                ; LOOK FOR "NETWORK_X"
+                ; NOW LOOK FOR "NETWORK_X"
+
+                LDX NETWORK_STR_WITH_NUMBER_INDEX
 
                 LDA BASIC_UNIT
                 CLC
                 ADC #'0'
-                
-                LDX NETWORK_STR_WITH_NUMBER_INDEX
+              
                 STA NETWORK_STR_WITH_NUMBER,X
 
                 LDA NETWORK_STR_WITH_NUMBER_ADDR+1
-                LDY NETWORK_STR_WITH_NUMBER_ADDR
+                LDY NETWORK_STR_WITH_NUMBER_ADDR 
 
                 JSR SP_FIND_DEVICE              ; LOOK FOR "NETWORK_X" WHERE X IS 0-3
-
-FIND_COMPLETED:
+                CPX #SP_ERR
+                BNE FOUND_IT
+FIND_ERROR:                
+                LDX #FN_ERR
+FOUND_IT:
+                TXA
+                TAY                             ; RETURN IN Y
 
                 RTS
 
@@ -637,7 +731,7 @@ FN_LIST_ERROR_OUT:
 
                 PLA
 
-                LDX #$FF
+                LDX #FN_ERR
                 SEC
                 RTS
 

@@ -10,7 +10,11 @@
  210 OS = 4: TR=2
  215 F$="N:HTTPS://www.gnu.org/licenses/gpl-3.0.txt"
  220 & NOPEN F,OS,TR, F$
- 230 INPUT A$
+ 240 & NSTATUS F, BW, CN, ER
+ 250 PRINT "F:";F;" BW:";BW;" CN:";CN;" ER:";ER
+ 260 INPUT A$
+ 
+
  300 B = 10
 
  330 A$="NOTHING"
@@ -19,9 +23,10 @@
  350 PRINT A$;
  355 INPUT A$
  
+ 
  360 & NSTATUS F, BW, CN, ER
  365 PRINT "F:";F;" BW:";BW;" CN:";CN;" ER:";ER
- 365 INPUT A$
+ 367 INPUT A$
  370 IF BW > 0 THEN 330
  
  400 PRINT "CLOSE"

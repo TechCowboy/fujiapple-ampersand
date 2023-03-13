@@ -11,6 +11,8 @@
         .include "ZEROPAGE.S"
         .include "MACROS.S"
 
+SP_ERR                  =       $FE
+
 SP_CMD_STATUS           =       $00
 SP_CMD_READ_BLOCK       =       $01
 SP_CMD_WRITE_BLOCK      =       $02
@@ -35,7 +37,7 @@ SP_ERROR_BUS_ERR        =       $06     ; bus error in IWM chip
 SP_ERROR_BAD_UNIT       =       $11     ; UNIT NUMBER $00 WAS USED
 SP_ERROR_BAD_CTRL       =       $21     ; CTRL OR STATUS CODE WAS NOT SUPPORTED
 SP_ERROR_BAD_CTRL_PARM  =       $22     ; CTRL PARAMTER LIST CONTAINS INVALID INFO
-SP_ERROR_IO_ERROR       =       $27     
+SP_ERROR_IO_ERROR       =       $27     ; CAN'T ACCESS DEVICE OR DEVICE ERROR
 SP_ERROR_NO_DRIVE       =       $28     ; DEVICE IS NOT CONNECTED
 SP_ERROR_NO_WRITE       =       $2B     ; MEDIUM IS WRITE PROTECTED
 SP_ERROR_BAD_BLOCK      =       $2D     ; BLOCK NUMBER IS OUTSIDE OF RANGE
@@ -70,7 +72,7 @@ relocatesp01:
 SP_PAYLOAD_STR_ADDR:    .WORD  SP_PAYLOAD+5
 
 SP_COUNT:               .WORD   $FFFF           ; BYTES IN PAYLOAD?
-SP_ERR:                 .BYTE   $FF             ; ERROR CODE
+LAST_SP_ERR:            .BYTE   SP_ERR          ; ERROR CODE
 
 CMD_LIST:               .RES 15               
 
@@ -83,7 +85,7 @@ MANUFACTURER:           .WORD   $FFFF           ; DRIVER MANUFACTURER
                                                 ; $0002-$FFFF 3RD PARTY DRIVER
 INTERFACEVER:           .WORD   $FFFF           ; INTERFACE VERSION
                         .WORD   $0000           ; RESERVED (MUST BE $0000)
-                        .RES    512             ; RESERVED FOR DATA
+                        .RES    1024            ; RESERVED FOR DATA
 
 SLOT_ADDR		=	ZP2
 SLOT_ADDR_LO	    	=	ZP2_LO
@@ -118,8 +120,6 @@ CLR:
 ;**********************************
 PRINT_SP_PAYLOAD:
                 SAVE_REGS
-
-                JSR DUMP_SP_PAYLOAD
 
                 LDX #$00
 
@@ -158,21 +158,28 @@ PPAYLOAD2:
 
                 RESTORE_REGS
                 RTS
+
+.IF .NOT STRIP_TRACE
+
 ;*******************************
 ; DUMP_SP_PAYLOAD
 ;   Display the HEX and ASCII contents
 ; of the payload buffer
 ;**********************************
-DUMPSIZE = 12
+;*******************************
+; DUMP_SP_PAYLOAD
+;   Display the HEX and ASCII contents
+; of the payload buffer
+;**********************************
 
-DUMP_SP_PAYLOAD:
+DUMP_SP_PAYLOAD_HEX:
                 JSR CROUT
                 LDX #$00
-PPAYLOAD0:   
+PPAYLOAD4:   
                 TXA
                 PHA                     ; SAVE X PUSH +1
 
-                LDA SP_PAYLOAD+4,X      ; STRING
+                LDA SP_PAYLOAD,X      ; STRING
                 TAX
                 JSR PRINT_X
 
@@ -180,32 +187,83 @@ PPAYLOAD0:
                 TAX
 
                 INX
-                CPX #DUMPSIZE
+                CPX #10
+                BNE PPAYLOAD4
+                JSR CROUT
+                RTS
+DUMP_SP_PAYLOAD:
+                JSR CROUT
+                LDX #$00
+PPAYLOAD0:   
+                TXA
+                PHA                     ; SAVE X PUSH +1
+
+                LDA SP_PAYLOAD,X      ; STRING
+                TAX
+                JSR PRINT_X
+
+                PLA                     ; RESTORE X -1
+                TAX
+
+                INX
+                CPX SP_PAYLOAD
                 BNE PPAYLOAD0
                 JSR CROUT
 
                 LDX #$00
 PPAYLOAD1: 
                 TXA
-                PHA
-                LDA SP_PAYLOAD+4,X      ; STRING
+                PHA                     ; SAVE OUR X
+
+                LDA SP_PAYLOAD,X      ; STRING
+                CMP #$20
+                BPL PRINT_IT 
+                LDA #'.'
+PRINT_IT:
                 ORA #$80                ; MAKE SURE THE HIGH BIT IS
                 JSR COUT                ; SET SO IT DOESN'T LOOK INVERSE
                 LDA #SPACE
+                JSR COUT                ; TWO SPACES
                 JSR COUT
-                JSR COUT
-                PLA
+
+                PLA                     ; RESTORE OUR X
                 TAX
                 INX
-                CPX #DUMPSIZE
+                CPX SP_PAYLOAD
                 BNE PPAYLOAD1
 
                 JSR CROUT
 
                 RTS
 
+;*******************************
+; DUMP_CMD_LIST
+;   Display the CMD_LIST in HEX 
 ;**********************************
-.IF .NOT STRIP_TRACE
+
+DUMP_CMD_LIST:
+                JSR CROUT
+                LDX #$00
+CMDLIST0:   
+                TXA
+                PHA                     ; SAVE X PUSH +1
+
+                LDA CMD_LIST,X      ; STRING
+                TAX
+                JSR PRINT_X
+
+                PLA                     ; RESTORE X -1
+                TAX
+
+                INX
+                CPX #5
+                BNE CMDLIST0
+                JSR CROUT
+
+                RTS
+
+
+;**********************************
 
 DUMP_SP_PAYLOAD_STR:
                 SAVE_REGS
@@ -252,6 +310,7 @@ PPAYLOAD3:
 ;   A = $FF - NO SMARTPORT FOUND
 ;   A = $CX - WHERE X IS THE SLOT
 ;**********************************
+
 FIND_SMARTPORT_SLOT:
 
 .IF .NOT STRIP_TRACE
@@ -259,10 +318,7 @@ FIND_SMARTPORT_SLOT:
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE10
-
-
                 PRINT_STR REAL_SMARTPORT_STR_ADDR
-
                 PRINT_STR FIND_SMARTPORT_SLOT_STR_ADDR
 
  NO_TRACE10:               
@@ -299,7 +355,6 @@ NEXT_SLOT:
                 BEQ NOT_FOUND           ; WE'RE DONE
                 BNE SCAN                ; CONTINUE SCANNING
 
-
 FOUND:
                 TXA                    
                 CLC
@@ -329,11 +384,7 @@ SLOT_FIND_DONE:
                 RTS
         
 SMARTPORT_ID:   .BYTE $20, $00, $03, $00 
-.ENDIF
 
-
-
-.IF USE_SP
 
 ;*******************************
 ; GET_SMARTPORT_DISPATCH_ADDRESS
@@ -400,7 +451,6 @@ DONE:
                 SAVE_REGS
                 PRINT_STR DISPATCHER_ADDRESS_STR_ADDR
 
-
                 LDA DISPATCHER_ADDR_HI
                 LDX DISPATCHER_ADDR_LO
                 JSR PRTAX
@@ -413,10 +463,8 @@ DONE:
                 LDX DISPATCHER_ADDR_LO
 
                 RTS
+
 .ENDIF
-
-
-.IF USE_SP
 
 ;******************************************************************
 ; SP_OPEN
@@ -546,26 +594,35 @@ SP_CLOSE_DONE:
 ;
 ; FUJINET SPECIFC
 ;Byte   Definition
+; 'O'-open
+;0-1    payload size
+;2      mode read or write or both
+;3      translation
+;4...   url
 ;
 ; 'C'-close
 ;0-1    payload size $00
 ;
-;'R'
+; 'R'-read
 ;0-1   payload size (bytes to return)
 ;2..   data
 ;
-;'W'
+; 'W'-write
 ; 0-1  payload size (bytes to write)
 ; 2..  data
 ;
-;'A'
+; 'A'-accept
 ; accept connection
+;0-1    payload size $00?
 ;
-; 'c'
+; 'c'-close connection
 ; close client connection
+;0-1    payload size $00?
 ;
-;'D'
+;'D'-udp destination
 ; set UDP destination
+;0-1    payload size?
+;2...   url?
 ;
 ; INPUT
 ;  X = UNIT
@@ -575,7 +632,7 @@ SP_CONTROL:
                 STY CMD_LIST+4
 
 .IF .NOT STRIP_TRACE
-.IF EXT2_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE14
@@ -611,22 +668,22 @@ NO_TRACE14:
 
                 .BYTE SP_CMD_CONTROL
 relocatesp04:   .WORD CMD_LIST
-                
-                BCS CTRL_ERROR
+
                 BCC SP_CTRL_DONE
+
 CTRL_ERROR:
-.IF EXT2_TRACE
+
+.IF EXT_TRACE
                 PHA
                 PRINT_STR SP_ERROR_STR_ADDR
                 PLA
                 TAX
                 JSR PRTX
                 JSR CROUT
-.ENDIF
                 SEC
+.ENDIF
 
 SP_CTRL_DONE:
-
                 RTS
 
 ;******************************************************************
@@ -706,7 +763,7 @@ relocatesp05:   .WORD CMD_LIST
 
                 STX SP_COUNT
                 STY SP_COUNT+1
-                STA SP_ERR
+                STA LAST_SP_ERR
                 BCC SP_READ_DONE
 
 ERROR:
@@ -750,16 +807,19 @@ SP_WRITE:
 .IF .NOT STRIP_TRACE
 .IF EXT2_TRACE
                 SAVE_REGS
-                LDA TRACE_FLAG
-                BEQ NO_TRACE15
                 TXA
                 PHA
+                LDA TRACE_FLAG
+                BEQ NO_TRACE40
+                
                 PRINT_STR SP_WRITE_STR_ADDR
                 PLA
+                PHA
                 TAX
                 JSR PRTX
                 JSR CROUT
-NO_TRACE15:                
+NO_TRACE40:       
+                PLA         
                 RESTORE_REGS
 .ENDIF
 .ENDIF
@@ -791,7 +851,7 @@ relocatesp06:   .WORD CMD_LIST
 
                 STX SP_COUNT
                 STY SP_COUNT+1
-                STA SP_ERR
+                STA LAST_SP_ERR
                 BCC SP_WRITE_DONE
 
 ERROR2:
@@ -831,6 +891,7 @@ SP_WRITE_DONE:
 ; INPUT
 ;   X - UNIT DESTINATION
 ;   Y - STATUS CODE
+;       Y='S' return SP[0..1] = Bytes waiting, SP[2] & 0x02 = connected 
 ;******************************************************************
 SP_STATUS:
 
@@ -838,27 +899,32 @@ SP_STATUS:
 .IF EXT2_TRACE
 
                 SAVE_REGS
-                LDA TRACE_FLAG
-                BEQ NO_TRACE35
                 TXA
                 PHA
+                LDA TRACE_FLAG
+                BEQ NO_TRACE35
                 PRINT_STR SP_STATUS_STR_ADDR
                 PLA
+                PHA
                 TAX
                 JSR PRTX
 
-NO_TRACE35:             
+NO_TRACE35:     
+                PLA
                 RESTORE_REGS
 .ENDIF
 .ENDIF
 
                 LDA #SP_STATUS_PARAM_COUNT
                 STA CMD_LIST                    ; PARAMETER COUNT
+
                 STX CMD_LIST+1                  ; X = DESTINATION DEVICE
+
                 LDA SP_PAYLOAD_ADDR             
                 STA CMD_LIST+2                  ; STATUS LIST POINTER LO
-                LDA SP_PAYLOAD_ADDR+1           
+                LDA SP_PAYLOAD_ADDR+1    
                 STA CMD_LIST+3                  ; STATUS LIST POINTER HI
+
                 STY CMD_LIST+4                  ; Y = STATUS CODE
 
                 JSR CALL_DISPATCHER
@@ -868,7 +934,15 @@ relocatesp07:   .WORD CMD_LIST
 
                 STX SP_COUNT
                 STY SP_COUNT+1
-                STA SP_ERR
+                STA LAST_SP_ERR
+.IF .NOT STRIP_TRACE
+        TAX
+        JSR PRTX
+        JSR CROUT
+        JSR DUMP_CMD_LIST
+        JSR DUMP_SP_PAYLOAD_HEX
+.ENDIF
+
                 BCC SP_STATUS_DONE
 
 ERROR3:
@@ -880,19 +954,24 @@ ERROR3:
                 PLA
                 TAX
                 JSR PRTX
-.ENDIF
-.ENDIF
+                RESTORE_REGS
                 SEC
+.ENDIF
+.ENDIF
+
+                RTS
 SP_STATUS_DONE:
 .IF .NOT STRIP_TRACE
 .IF EXT2_TRACE
-
+                SAVE_REGS
                 JSR CROUT
-
+                RESTORE_REGS
+                
+                CLC
 .ENDIF
 .ENDIF
                 RTS
-.ENDIF
+
 
 ;*******************************
 ; CALL_DISPATCHER
@@ -905,20 +984,7 @@ SP_STATUS_DONE:
 ; WORD - Address for return values
 ;**********************************
 CALL_DISPATCHER:
-
-.IF .NOT STRIP_TRACE
-.IF EXT2_TRACE
-                SAVE_REGS
-                LDA TRACE_FLAG
-                BEQ NO_TRACE16
-                PRINT_STR CALL_DISPATCHER_STR_ADDR
-NO_TRACE16:                
-                RESTORE_REGS
-.ENDIF
-.ENDIF
-
                 JMP (SMARTPORT_DISPATCHER)
-
 
 
 ;*******************************
@@ -930,12 +996,10 @@ DISPLAY_SP_STATUS:
 
 .IF .NOT STRIP_TRACE
 .IF EXT2_TRACE
-                SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE17
                 PRINT_STR DISPLAY_SP_STATUS_STR_ADDR
 NO_TRACE17:                
-                RESTORE_REGS
 .ENDIF
 .ENDIF
 
@@ -1059,7 +1123,6 @@ FIND_DEVICE_BUF_ADDR:   .WORD FIND_DEVICE_BUF
 
 
 ;***************************************************************
-.IF USE_SP
 
 ;*******************************
 ; SP_FIND_DEVICE
@@ -1076,16 +1139,15 @@ FIND_DEVICE_BUF_ADDR:   .WORD FIND_DEVICE_BUF
 SP_FIND_DEVICE:
 
 .IF .NOT STRIP_TRACE
-.IF EXT2_TRACE
+.IF EXT_TRACE
                 SAVE_REGS
                 LDA TRACE_FLAG
                 BEQ NO_TRACE18
                 PRINT_STR SP_FIND_DEVICE_STR_ADDR       ; "SP_FIND_DEVICE:"
-NO_TRACE18:                
-                RESTORE_REGS
+NO_TRACE18:    
+                RESTORE_REGS            
 .ENDIF
 .ENDIF
-
                 STA ZP1_HI                              ; STORE THE STRING ADDRESS
                 STY ZP1_LO
                 
@@ -1099,26 +1161,28 @@ LOOK_FOR_NULL:
                 INX
                 CLC
                 BCC LOOK_FOR_NULL
-
 GOT_LENGTH:     
                 STX FIND_DEVICE_BUF_LEN                 ; SAVE THE LENGTH INCLUDES NULL
 
 .IF .NOT STRIP_TRACE
-.IF EXT2_TRACE
-                SAVE_REGS
+.IF EXT_TRACE
                 LDA TRACE_FLAG
                 BEQ NO_TRACE19
                 PRINT_STR FIND_DEVICE_BUF_ADDR          ; DISPLAY THE STRING WE COLLECTED
                 JSR CROUT                               ; CARRIAGE RETURN
 NO_TRACE19:                
-                RESTORE_REGS
 .ENDIF
 .ENDIF
 
                 LDX #$00
                 LDY #SP_CMD_STATUS                      ; ASK FOR SMARTPORT STATUS
                 JSR SP_STATUS
+                BCC GOT_DEVICE_COUNT                    ; GOT AN ERROR
 
+                SEC
+                BCS ERROR_OUT2
+
+GOT_DEVICE_COUNT:
                 LDX DCOUNT                              ; THE NUMBER OF DEVICES
                 INX
                 STX NUM_DEVICES
@@ -1129,17 +1193,33 @@ NEXT_DEV2:
                 TXA
                 PHA 
 
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
+                JSR PRTX
+                PLA
+                PHA
+                TAX
+.ENDIF
+.ENDIF
+
                 LDY #SP_STATUS_DIB                      ; X IS DEVICE 
                 JSR SP_STATUS                           ; GET INFO
-                BCS ERROR_OUT
+                BCS ERROR_OUT                           ; QUIT IF WE GET AN ERROR
                 
                 LDA SP_PAYLOAD+4                        ; LENGTH OF STRING
                 CMP FIND_DEVICE_BUF_LEN                 ; IS IT THE SAME SIZE AS THE STRING WE'RE LOOKING FOR?
                 BNE NEXT_DEVICE                         ; NOPE, CHECK NEXT DEVICE
 
-
                 ; SAME SIZE STRING, NOW CHECK AND SEE IF IT
                 ; IS THE DEVICE WE'RE LOOKING FOR
+
+.IF .NOT STRIP_TRACE
+.IF EXT2_TRACE
+                LDA #'>'
+                JSR COUT
+                JSR DUMP_SP_PAYLOAD
+.ENDIF
+.ENDIF
 
                 LDX #$00        
 SCAN_CHAR:
@@ -1155,7 +1235,6 @@ SCAN_CHAR:
                 CLC
                 BCC FOUND_DEVICE                        ; WE FOUND OUR DEVICE
 NEXT_DEVICE:
-
                 PLA                                     ; REMOVE THE DEVICE NUMBER OFF STACK
                 TAX                                     
                 INX                                     ; AND INCREMENT IT
@@ -1164,18 +1243,34 @@ NEXT_DEVICE:
 
                 ; EXHAUSTED OUR LIST
 
-                LDX #$FF                                ; NOT FOUND
+                LDX #SP_ERR                                ; NOT FOUND
                 LDA #SP_ERROR_NOT_FOUND
                 CLC
                 BCC FOUND_DONE
 
 ERROR_OUT:      
-                ; ERROR STRING HERE
                 PLA
-                LDX #$FF                                ; ERROR
+ERROR_OUT2:
+                ; ERROR STRING HERE
+
+.IF .NOT STRIP_TRACE
+.IF EXT2_TRACE
+                PRINT_STR SP_FIND_DEVICE_ERROR_STR_ADDR
+.ENDIF
+.ENDIF
+
+
+                LDX #SP_ERR                               ; ERROR
                 RTS
 
 FOUND_DEVICE:
+.IF .NOT STRIP_TRACE
+.IF EXT2_TRACE
+                LDA #'F'
+                JSR COUT
+                JSR CROUT
+.ENDIF
+.ENDIF
 
                 PLA
                 TAX
@@ -1183,7 +1278,6 @@ FOUND_DEVICE:
 FOUND_DONE:    
 
                 RTS
-.ENDIF
 
 
 

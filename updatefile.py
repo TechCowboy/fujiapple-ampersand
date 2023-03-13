@@ -16,9 +16,9 @@ global checked
 
 checked = False
 
-window_speed = 0.4
-my_speed = 0.2
-tab_speed = 0.2
+window_speed = 0.5
+my_speed     = 0.0
+tab_speed    = 0.0
 
 debug = False
 debug_small = debug or False
@@ -108,13 +108,12 @@ def set_focus(windowname):
         if end_program:
             exit(0)
 
-
+#**************************************************
 def give_focus(windowname):
-    
-
+      
     if debug_small:
         print(f"give_focus {windowname}")
-
+    time.sleep(window_speed)
     output, error = run(['wmctrl', '-a', windowname])
     
     for i in range(2):
@@ -268,7 +267,7 @@ def add_file(files):
         if debug:
             print("F")
         p.press("F")
-        time.sleep(1)
+        time.sleep(window_speed)
         
         give_focus("Add")
         
@@ -319,7 +318,7 @@ def del_file(files):
         if debug:
             print("d")
         p.press("d")
-        time.sleep(0.5)
+        time.sleep(window_speed)
         
         p.press("enter")
         p.sleep(0.5)
@@ -633,4 +632,5 @@ if __name__ == "__main__":
         print("Completed.")
         print(f"New version: {new_version}")
 
+   
    

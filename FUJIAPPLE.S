@@ -13,7 +13,7 @@
 ;
 ; With ca65 task
 ;{
-;    "version": "2.0.0",
+;    "version": "2.0fnet.0",
 ;    "tasks": [
 ;        {
 ;            "label": "ca65: Compile and Link Current File",
@@ -38,13 +38,14 @@
 ;
 ; EXT_TRACE and EXT2_TRACE includes calls into the SMARTPORT routines
 
-STRIP_TRACE= 0  ; Eliminate all tracing code and strings
-EXT_TRACE  = 0  ; Extended Trace, 1=display SMARTPORT internal debug messages 
-EXT2_TRACE = 0  ; Extended Trace 2, display SP_STATUS and CALL_DISPATCHER
+STRIP_TRACE= 1  ; Eliminate all tracing code and strings
+TRACE_ON   = 1  ; &NTRACE is on at the very start
+EXT_TRACE  = 1  ; Extended Trace, 1=display SMARTPORT internal debug messages 
+EXT2_TRACE = 1  ; Extended Trace 2, display SP_STATUS and CALL_DISPATCHER
 RELOCATE   = 0  ; 1=relocate himem and put our code there
 PRODOS     = 1  ; 0=add dos 3.3 header
 APPLEII    = 1  ; always set to one, EQUs will be for apple zero page
-USE_SP     = 1  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
+USE_SP     = 0  ; 1=USE ACTUAL SMARTPORT 0=EMULATE SMARTPORT FUNCTIONS
 
 SMALL_TEST = 0  ; Test only one small specific code
 
@@ -139,8 +140,21 @@ TEST_STR:
 
 NOT_CORRUPTED:
 
+                ; FIND ALL THE NETWORK ADAPTERS
+                ; 0 IS "NETWORK" OR "NETWORK_0"
+                ; 1-3 IS "NETWORK_1" OR 2, OR 3
+
+
+
+
+
+
 .IF .NOT STRIP_TRACE
+.IF TRACE_ON
+                JSR NTRACE
+.ELSE
                 JSR NNOTRACE
+.ENDIF
 .ENDIF
 
 .IF .NOT STRIP_TRACE
@@ -152,6 +166,15 @@ NOT_CORRUPTED:
 .ENDIF
                 JSR GET_SMARTPORT_DISPATCH_ADDRESS      ; FIND THE ADDRESS
 
+.IF .NOT STRIP_TRACE
+.IF EXT_TRACE
+                SAVE_REGS
+                PRINT_STR DISPATCHER_ADDRESS_STR_ADDR
+                JSR PRTAX
+                JSR CROUT
+                RESTORE_REGS
+.ENDIF
+.ENDIF
                 LDA DISPATCHER_ADDR_HI
                 CMP #$FF                                ; WAS THE CARD FOUND?
                 BNE FOUND_SMARTPORT
@@ -160,10 +183,28 @@ NOT_CORRUPTED:
                 LDY #>SP_NOT_FOUND_STR
                 JSR STROUT
 
-BYE:
+
+
+                LDX #$00
+NEXT_NETWORK_CACHE:
+                STX BASIC_UNIT 
+                JSR FN_FIND_NETWORK
+                
+                LDX BASIC_UNIT
+                TYA
+                STA NETWORK_CACHE,X
+
+                INX
+                CPX #$04
+                BNE NEXT_NETWORK_CACHE
+
+.IF EXT_TRACE
                 LDA #<EXITING_STR
                 LDY #>EXITING_STR
                 JSR STROUT
+.ENDIF
+
+BYE:
                 RTS
 
 
@@ -251,6 +292,10 @@ SAVEVECT:
                 LDA #<EXTADDED_STR          ; "FUJINET EXTENSION ADDED"
                 LDY #>EXTADDED_STR          
                 JSR STROUT
+
+.IF .NOT USE_SP
+                PRINT_STR FAKE_SMARTPORT_STR_ADDR
+.ENDIF
 
 .IF PRODOS
                 RTS
@@ -354,6 +399,43 @@ NOMORECMDS:
 
                 JMP   PREVECT    ; WE DIDN'T FIND OUR COMAND SO GO TO OLD VECTOR
 
+DISPLAY_OPENS:
+                SAVE_REGS
+                PRINT_STR NETWORK_STR_ADDR
+                LDA #COLON 
+                JSR COUT
+
+                LDY #$00
+
+NEXT_OPEN:
+                LDA OPEN_LIST,Y
+                TAX
+                JSR PRTX
+                INY
+                CPY #$04
+                BNE NEXT_OPEN
+                JSR CROUT
+                RESTORE_REGS
+                RTS
+
+DISPLAY_NERRS:
+                SAVE_REGS
+                PRINT_STR SP_ERROR_STR_ADDR
+                LDA #COLON 
+                JSR COUT
+
+                LDY #$00
+
+NEXT_NERR:
+                LDA NERR,Y
+                TAX
+                JSR PRTX
+                INY
+                CPY #$04
+                BNE NEXT_NERR
+                JSR CROUT
+                RESTORE_REGS
+                RTS
 ;*********************************
 ; GETSTR - GETS A STATIC STRING ("BLAH")
 ; INPUT:
@@ -465,13 +547,13 @@ DISPLAY_INTERNAL_STATE:
                 JSR PRINT_X
                 JSR CROUT
 
-                LDX NETWORK
+                LDX NETWORK_CACHE
                 JSR PRINT_X
-                LDX NETWORK+1
+                LDX NETWORK_CACHE+1
                 JSR PRINT_X
-                LDX NETWORK+2
+                LDX NETWORK_CACHE+2
                 JSR PRINT_X
-                LDX NETWORK+3
+                LDX NETWORK_CACHE+3
                 JSR PRINT_X
                 JSR CROUT
 
@@ -539,29 +621,24 @@ NO_TRACE32:
                 JMP APPLESOFT_ERROR
                
 UNIT_OK1:
-                LDA BASIC_UNIT
-                JSR FN_FIND_NETWORK             ; FUJINET UNIT WILL BE RETURN IN X
-                CPX #$FF                        ; NETWORK WAS NOT FOUND!
+                LDX BASIC_UNIT
+                CPX #FN_ERR                     ; NETWORK WAS NOT FOUND!
                 BNE NOPEN_NETWORK_FOUND
 
 NO_NETWORK_ERROR:
-                LDA BASIC_UNIT
-                TAX
-                LDA #FN_ERR_SERVICE_NOT_AVAILABLE ; CAN'T FIND THE SPECIFIED NETWORK (E.G. NETWORK_1 WAS NOT FOUND)
-                STA NERR,X                      ; RECORD THE ERROR
-                LDA #$FF                        ; INDICATE THIS BASIC_UNIT IS CLOSED
-                STA NETWORK,X
+                LDA #FN_ERR_SERVICE_NOT_AVAILABLE       ; CAN'T FIND THE SPECIFIED NETWORK (E.G. NETWORK_1 WAS NOT FOUND)
+                STA NERR,X                              ; RECORD THE ERROR
+                LDA #FN_ERR                             ; INDICATE THIS BASIC_UNIT IS CLOSED
+                STA OPEN_LIST,X
                 JSR IGNORE_TO_NEXT_BASIC_STATEMENT
                 RTS
 
 NOPEN_NETWORK_FOUND:
                 ; NETWORK: WW XX YY ZZ - WHERE EACH BYTE IS THE ACTUAL UNIT NUMBER
-                TXA                             ; TODO:  change fn_find_network to return result in y
-                TAY
 
                 LDX BASIC_UNIT                  ; LOAD THE "BASIC" UNIT NUMBER
-                TYA
-                STA NETWORK, X                  ; STORE THE ACTUAL UNIT NUMBER FOR LATER USE
+                LDA NETWORK_CACHE,X
+                STA OPEN_LIST, X                     ; STORE THE ACTUAL UNIT NUMBER FOR LATER USE
 
                 JSR CHKCOM
                 JSR GETBYT                      ; GET MODE
@@ -596,32 +673,37 @@ VARSTR:
                 JSR GETSTRVAR                   ; IT'S A STRING VARIABLE
 STORE:
                 LDY DSCTMP                      ; GET THE STRING LENGTH
-                STY URL_LEN
+                STY URL_LEN                     ; INCLUDE NULL AT END OF LENGTH
+                DEY
 STORING:
                 LDA (DSCTMP+1),Y                ; TRANSER THE STRING TO THE URL BUFFER
                 STA URL,Y
                 DEY
                 BPL STORING
 
-; MAKE THE STRING C COMPATIBLE -- DO I NEED TO DO THIS????
+                ; MAKE THE STRING C COMPATIBLE
 
-                LDY DSCTMP
+                LDY URL_LEN
                 LDA #0                          ; NULL TERMINATE THE STRING
                 STA URL,Y
 
+                INY                             ; INCLUDE THE NULL TERMINATOR TO THE LENGTH
+                STY URL_LEN
+
                 LDX BASIC_UNIT                  ; BASIC UNIT 0-4
-                LDA NETWORK,X                   ; FUJINET UNIT
+                LDA OPEN_LIST,X                   ; FUJINET UNIT
                 TAX
                 JSR FN_OPEN
                 BCC NOPEN_COMPLETE
 
                 LDX BASIC_UNIT                  ; FAILED TO OPEN
-                LDA #$FF                        ; INDICATE THE NETWORK IS 
-                STA NETWORK,X                   ; NOT IN USE
-                LDA SP_ERR
+                LDA #FN_NO_NETWORK              ; INDICATE THE NETWORK IS 
+                STA OPEN_LIST,X                   ; NOT IN USE
+                LDA FN_LAST_ERR
                 STA NERR,X
 
 NOPEN_COMPLETE:
+
                 RTS
 ;*********************************************
 NCLOSE:
@@ -649,17 +731,20 @@ NO_TRACE2:
 NO_TRACE34:
 .ENDIF               
 
-                LDX BASIC_UNIT
-                LDA NETWORK, X  ; THIS IS THE ACTUAL UNIT NUMBER
-                TAX
 
+                LDX BASIC_UNIT
+                LDA OPEN_LIST, X          ; THIS IS THE ACTUAL UNIT NUMBER
+                CMP #FN_NO_NETWORK   ; CLOSING SOMETHING THAT IS NOT ACTUALLY OPEN  
+                BEQ JUST_CLOSE
+                TAX
                 JSR FN_CLOSE
 
-                LDX BASIC_UNIT  ; SAVE ANY ERROR THAT OCCURED DURING CLOSE
+JUST_CLOSE:
+                LDX BASIC_UNIT          ; SAVE ANY ERROR THAT OCCURED DURING CLOSE
                 STA NERR,X
 
-                LDA #$FF        ; REGARDLESS, INDICATE BASIC UNIT IS CLOSED
-                STA NETWORK, X
+                LDA #FN_NO_NETWORK      ; REGARDLESS, INDICATE BASIC UNIT IS CLOSED
+                STA OPEN_LIST, X
                 RTS
 
 ;*********************************************
@@ -708,24 +793,22 @@ NO_TRACE36:
 
 
                 LDX BASIC_UNIT                  ; CONVERT THE BASIC_UNIT TO THE FUJINET UNIT
-                LDA NETWORK,X
-                CMP #$FF                        ; $FF INDICATES IT WAS NEVER OPENED
+                LDA OPEN_LIST,X
+                CMP #FN_NO_NETWORK              ; $FF INDICATES IT WAS NEVER OPENED
                 BNE UNIT_OK2
 
-                LDA #FN_ERR_NOT_CONNECTED       ; RETURN ERROR THAT WE WERE NEVER CONNECTED
+                LDA #FN_NO_NETWORK              ; RETURN ERROR THAT WE WERE NEVER CONNECTED
                 STA NERR,X
                 RTS
 
 UNIT_OK2:
-                TAX 
+                TAX
                 JSR FN_READ                     ; REQUEST THE DATA FROM FUJINET
-                STA NERR,X
-                CPX #$FF
+                CPX #FN_ERR
                 BNE TRANSFER_VALUES
 
 NREAD_ERROR:
-                ; ERROR VALUE WILL ALREADY BE IN NERR,X FOR USER TO COLLECT
-
+                STA NERR,X
                 RTS
 
 TRANSFER_VALUES:                
@@ -822,8 +905,8 @@ COPYBUF:
                 BPL   COPYBUF
 
                 LDX BASIC_UNIT
-                LDA NETWORK,X
-                CMP #$FF
+                LDA OPEN_LIST,X
+                CMP #FN_NO_NETWORK
                 BNE UNIT_OK5
 
                 PRINT_STR NOT_OPENED_STR_ADDR
@@ -835,6 +918,8 @@ UNIT_OK5:
 ; TO BE SENT
 ; CALL FUJINET
 ;**********************
+                TAX
+                JSR FN_WRITE
 
                 RTS
 
@@ -892,8 +977,8 @@ CPY2BUF:
 
                 LDA BASIC_UNIT
                 TAX
-                LDA NETWORK,X
-                CMP #$FF
+                LDA OPEN_LIST,X
+                CMP #FN_NO_NETWORK
                 BNE UNIT_OK4
 
                 PRINT_STR NOT_OPENED_STR_ADDR
@@ -935,59 +1020,40 @@ NO_TRACE39:
                 JSR CHKCOM
 
                 LDX BASIC_UNIT
-                LDA NETWORK,X                
+                LDA OPEN_LIST,X                
+                CMP #FN_NO_NETWORK
+                BNE INFO
+
+                LDA #$FF                        ; USER HASN'T OPENED THE
+                STA BW                          ; CONNECTION, SO JUST
+                STA BW+1                        ; SET EVERYTHING TO -1/255
+                STA NERR
+                LDA #$00
+                STA CONNECT                     ; NO CONNECTION
+                CLC
+                BCC SAVE_INFO
+
+                ; we have a network
+
+INFO:
                 TAX
-                CMP #$FF
-                BNE UNIT_OK3
+                
+                JSR FN_STATUS           ; THIS SETS BW AND CONNECT              
 
-                ; IF THE UNIT HASN'T BEEN OPENED
-                ; THEN ERROR
-
-                PRINT_STR NOT_OPENED_STR_ADDR
-                JMP SYNERR
-
-UNIT_OK3:
-
-                JSR FN_IS_CONNECTED
-                STA CONNECT
-
-;******* TO DO *******
-;* GET BYTES WAITING AND STORE IN BW - DONE
-;* GET CONNECTED STATE AND STORE IN CONNECT - DONE
-;* GET ERROR VALUE AND STORE IN NERR - TODO
-;*********************
-
-                JSR FN_BYTES_WAITING    ; GET BYTES WAITING
-                STY BW
-                STA BW+1
-
-                LDX BASIC_UNIT
-                LDA NETWORK,X 
-                TAX
-                JSR FN_IS_CONNECTED     ; GET CONNECTED STATE
-                STA CONNECT
-
-                LDX BASIC_UNIT
-                LDA NETWORK,X 
-                TAX
-
-                JSR FN_BYTES_WAITING
-                STA BW+1
-                STY BW
-
+SAVE_INFO:
                 ; SEND TO BASIC
-
-;                LDA BW+1       ; NUMBER OF BYTES WAITING
-;                LDY BW
+                LDA BW+1       ; NUMBER OF BYTES WAITING
+                LDY BW
                 JSR WORDSAV    ; CONVERT TO FLOAT AND STORE IN BW VAR
 
                 JSR CHKCOM
+
                 LDY CONNECT
                 JSR BYTESAV    ; CONVERT TO FLOAT AND STORE IN CONNECT VAR
 
                 JSR CHKCOM
-                LDX BASIC_UNIT
-                LDA NETWORK,X
+
+                LDA BASIC_UNIT
                 TAX
 
                 LDA NERR,X 
@@ -1115,9 +1181,9 @@ NNOTRACE:
                 RTS
 .ENDIF
 
-        .include "SMARTPORTCMDS.S"
-        .include "FAKESMARTPORT.S"
-        .include "FUJINET.S"
+                .include "SMARTPORTCMDS.S"
+                .include "FAKESMARTPORT.S"
+                .include "FUJINET.S"
 
 RELOCATE_CODE_END:
 
@@ -1206,8 +1272,9 @@ STRLEN:         .BYTE   0
 STRBUF:         .RES    255
 relocate010:
 STRBUF_ADDR:    .WORD   STRBUF
-NETWORK:        .BYTE   $FF, $FF, $FF, $FF      ; BASIC UNIT INDEX TO ACTUAL UNIT
-NERR:           .BYTE   $FF, $FF, $FF, $FF      ; LAST ERROR
+NETWORK_CACHE:  .BYTE   FN_NO_NETWORK, FN_NO_NETWORK, FN_NO_NETWORK, FN_NO_NETWORK
+OPEN_LIST:      .BYTE   FN_NO_NETWORK, FN_NO_NETWORK, FN_NO_NETWORK, FN_NO_NETWORK      ; BASIC UNIT INDEX TO ACTUAL UNIT
+NERR:           .BYTE   FN_ERR, FN_ERR, FN_ERR, FN_ERR                                  ; LAST ERROR
 
 STR_DSC_LEN:    .BYTE   0
 STR_DSC_LO:     .BYTE   0
@@ -1232,7 +1299,7 @@ RELOCATION_TABLE:
 .IF USE_SP
                .WORD    relocatesp00,relocatesp01,relocatesp02,relocatesp03,relocatesp04,relocatesp05,relocatesp06,relocatesp07;,relocatesp08,relocatesp09
 .ELSE
-                .WORD   relocatefsp00
+;                .WORD   relocatefsp00
 .ENDIF
 END_RELOCATION_TABLE:	
                 .WORD 	0 ; end of table

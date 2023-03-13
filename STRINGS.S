@@ -13,6 +13,7 @@ FUJIAPPLE_VER_STR:                          .BYTE "FUJIAPPLE VERSION: YYYYMMDD.H
 
 .IF .NOT USE_SP
 
+TEST_BLOCK_STR_LEN: .BYTE 255
 TEST_BLOCK_STR:
     .BYTE "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt "
     .BYTE $00
@@ -22,6 +23,8 @@ TEST_BLOCK_STR:
     .BYTE "non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
     .BYTE $00
 
+trace046:
+TEST_BLOCK_STR_ADDR: .WORD TEST_BLOCK_STR
 .ENDIF
 
 .IF .NOT STRIP_TRACE
@@ -39,10 +42,10 @@ HERE8:  .BYTE "HERE8", $0D, $00
 
 HIMEM_IS_STR:                               .ASCIIZ "OLD HIMEM: "
 RELOC_SIZE_STR:                             .ASCIIZ "RELOCATION SIZE: "
-RELOCATING_STR:                             .BYTE   "NEW HIMEM: ", $00
+RELOCATING_STR:                             .BYTE   " NEW HIMEM: ", $00
 
-OPEN_ERR_STR:                               .ASCIIZ "FN_OPEN: OPEN ERR"
-CTRL_ERR_STR:                               .ASCIIZ "FN_OPEN: CTRL ERR"
+OPEN_ERR_STR:                               .ASCIIZ "FN_OPEN: OPEN ERR:"
+CTRL_ERR_STR:                               .ASCIIZ "FN_OPEN: CTRL ERR:"
 
 
 .ENDIF
@@ -143,13 +146,9 @@ REAL_SMARTPORT_STR:                         .BYTE "REAL SMARTPORT", $0D, $00
 trace019:
 REAL_SMARTPORT_STR_ADDR:                    .WORD REAL_SMARTPORT_STR
 
-FAKE_SMARTPORT_STR:                         .BYTE "**** FAKE SMARTPORT ****", $0D, $00
-trace020:
-FAKE_SMARTPORT_STR_ADDR:                    .WORD FAKE_SMARTPORT_STR
-
-FN_FIND_NETWORK_STR:                         .BYTE "FN_FIND_NETWORK"    , $0D, $00
+FN_FIND_NETWORK_STR:                        .BYTE "FN_FIND_NETWORK"    , $0D, $00
 trace021:
-FN_FIND_NETWORK_STR_ADDR:                    .WORD FN_FIND_NETWORK_STR
+FN_FIND_NETWORK_STR_ADDR:                   .WORD FN_FIND_NETWORK_STR
 
 FN_BYTES_WAITING_STR:                       .BYTE "FN_BYTES_WAITING:", $00
 trace022:
@@ -191,6 +190,10 @@ PAYLOAD_STR:                                .BYTE "PAY:", $00
 trace034:
 PAYLOAD_STR_ADDR:                           .WORD PAYLOAD_STR
 
+CMD_LIST_STR:                               .BYTE $0D, "CMD_LIST: ", $00
+trace047:
+CMD_LIST_STR_ADDR:                          .WORD CMD_LIST_STR
+
 FOUND_DEVICE_STR:                           .BYTE "FOUND DEVICE!", $0D, $00
 trace035:
 FOUND_DEVICE_STR_ADDR:                      .WORD FOUND_DEVICE_STR
@@ -211,6 +214,10 @@ FN_WRITE_STR:                               .BYTE "FN_WRITE", $00
 trace039:
 FN_WRITE_STR_ADDR:                          .WORD FN_WRITE_STR
 
+FN_WRITE_ERROR_STR:                         .BYTE "FN WRITE ERROR", $0D, $00
+trace045:
+FN_WRITE_ERROR_STR_ADDR:                    .WORD FN_WRITE_ERROR_STR
+
 SP_READ_ERROR_STR:                          .BYTE "SP_READ ERROR", $0D, $00
 trace040:
 SP_READ_ERROR_STR_ADDR:                     .WORD SP_READ_ERROR_STR
@@ -218,6 +225,11 @@ SP_READ_ERROR_STR_ADDR:                     .WORD SP_READ_ERROR_STR
 NREAD_ERROR_STR:                            .BYTE "NREAD_ERROR", $0D, $00
 trace041:
 NREAD_ERROR_STR_ADDR:                       .WORD NREAD_ERROR_STR
+
+SP_FIND_DEVICE_ERROR_STR:                   .BYTE $0D, "SP_FIND_DEVICE ERROR!", $00
+trace044:
+SP_FIND_DEVICE_ERROR_STR_ADDR:              .WORD SP_FIND_DEVICE_ERROR_STR
+
 .ENDIF
 
 NOT_OPENED_STR:                             .ASCIIZ "UNIT NOT OPENED!"
@@ -282,7 +294,8 @@ NETWORK_STR:                                .ASCIIZ "NETWORK"
 str014:
 NETWORK_STR_ADDR:                           .WORD NETWORK_STR
 
-NETWORK_STR_WITH_NUMBER:                    .ASCIIZ "NETWORK_0"
+NETWORK_STR_WITH_NUMBER_LEN:                .BYTE 9
+NETWORK_STR_WITH_NUMBER:                    .ASCIIZ "NETWORK_1"
 str015:
 NETWORK_STR_WITH_NUMBER_ADDR:               .WORD NETWORK_STR_WITH_NUMBER
 NETWORK_STR_WITH_NUMBER_INDEX:              .BYTE 8
@@ -300,6 +313,11 @@ NETWORK_NOT_FOUND_STR_ADDR:                 .WORD NETWORK_NOT_FOUND_STR
 .IF .NOT USE_SP
 trace030:
 FAKE_DISPATCHER_ADDR:                       .WORD FAKE_DISPATCHER
+
+FAKE_SMARTPORT_STR:                         .BYTE "**** FAKE SMARTPORT ****", $0D, $00
+trace020:
+FAKE_SMARTPORT_STR_ADDR:                    .WORD FAKE_SMARTPORT_STR
+
 .ENDIF
 
 .ENDIF
